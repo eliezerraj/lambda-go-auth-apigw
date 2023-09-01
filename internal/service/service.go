@@ -119,4 +119,3 @@ func (a AuthService) ScopeValidation(credential domain.Credential, path string, 
 	}
 	return false ,nil
 }
-
