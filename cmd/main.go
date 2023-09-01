@@ -50,7 +50,6 @@ func main() {
 	log.Debug().Msg("main")
 
 	authService = service.NewAuthService([]byte(jwtKey))
-
 	lambda.Start(lambdaHandler)
 }
 
@@ -71,7 +70,14 @@ func generatePolicy(principalID, effect, resource string) events.APIGatewayCusto
 		}
 	}
 
+	// Add variables in context
+	authResponse.Context = map[string]interface{}{
+		"tenant-id":  "tenant-999",
+		"issuer-id":  123,
+	}
+
 	log.Debug().Interface("authResponse : ", authResponse).Msg("")
+	log.Debug().Interface("authResponse.Context : ", authResponse.Context).Msg("")
 
 	return authResponse
 }
@@ -96,8 +102,6 @@ func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorize
 	if err != nil {
 		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
 	}
-
-	ctx.authorizer.tenant_id = "tenand-01"
 	
 	if response == true {
 		return generatePolicy("user", "Allow", request.MethodArn), nil
