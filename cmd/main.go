@@ -85,6 +85,13 @@ func generatePolicy(principalID, effect, resource string) events.APIGatewayCusto
 func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
 	log.Debug().Msg("lambdaHandler")
 	log.Debug().Interface("request : ", request).Msg("+++++")
+	
+	arn := strings.SplitN(request.MethodArn, "/", 4)
+	method := arn[2]
+	path := arn[3]
+
+	log.Debug().Interface("method : ", method).Msg("")
+	log.Debug().Interface("path : ", path).Msg("")
 
 	token := request.AuthorizationToken
 	tokenSlice := strings.Split(token, " ")
@@ -97,8 +104,8 @@ func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorize
 	}
 
 	beared_token := domain.Credential{ Token: bearerToken }
-	response, err := authService.TokenValidation(beared_token)
-	
+	//response, err := authService.TokenValidation(beared_token) // Check just the token 
+	response, err := authService.ScopeValidation(beared_token, path, method) //Check token and scope
 	if err != nil {
 		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
 	}
