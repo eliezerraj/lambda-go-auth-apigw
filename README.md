@@ -2,7 +2,35 @@
 
 POC Lambda for technical purposes
 
-Lambda apigw authorizer for check JWT OAuth 2.0. This lambda must be used attached as an authorizar in ApiGateway
+Lambda apigw authorizer for check JWT OAuth 2.0
+
+There is a table user-profile where the lambda get some data from the profile and inject into http headers. 
+
+
+
+![Alt text](image.png)
+
+This lambda must be used attached as an authorizer into an ApiGateway
+
+There are 2 types of validation
+
+## Types of validation
+
+### ScopeValidation(token, method, path)
+
+Test, signed validation and all scopes
+
+The scopes are :
+
+      "header.read" : Method header with GET
+      "version.read":  Method version with POST
+      "info.read": Method info with GET
+      "admin": Allowed all access
+      "header" Method header with ANY allowed
+
+### TokenValidation(token)
+
+Just test and signed validation the JWT
 
 ## Compile lambda
 
@@ -17,12 +45,4 @@ Lambda apigw authorizer for check JWT OAuth 2.0. This lambda must be used attach
         --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
 
-## Events
-
-### ScopeValidation(token, method, path)
-
-Test, signed validation and all scopes
-
-### TokenValidation(token)
-
-Just test and signed validation the JWT
+,,

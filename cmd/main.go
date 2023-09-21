@@ -9,6 +9,7 @@ import(
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/lambda-go-auth-apigw/internal/service"
+	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/core/domain"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -19,10 +20,12 @@ import(
 var (
 	logLevel		=	zerolog.DebugLevel // InfoLevel DebugLevel
 	version			=	"lambda-go-auth-apigw version 1.0"
-	jwtKey			= 	"my_secret_key"
+	jwtKey			=	"my_secret_key"
+	tableName		=	"user-profile"
 	authService		*service.AuthService
 )
 
+// Loading ENV variables
 func getEnv(){
 	if os.Getenv("LOG_LEVEL") !=  "" {
 		if (os.Getenv("LOG_LEVEL") == "DEBUG"){
@@ -49,14 +52,24 @@ func init() {
 func main() {
 	log.Debug().Msg("main")
 
-	authService = service.NewAuthService([]byte(jwtKey))
+	// Create a repository
+	authRepository, err := repository.NewAuthRepository(tableName)
+	if err != nil {
+		panic("configuration error AuthRepository(), " + err.Error())
+	}
+
+	// Create a service
+	authService = service.NewAuthService([]byte(jwtKey), authRepository)
+	
+	// Start lambda handler
 	lambda.Start(lambdaHandler)
 }
 
 func generatePolicy(principalID, effect, resource string) events.APIGatewayCustomAuthorizerResponse {
 	log.Debug().Msg("generatePolicy")
-	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
 
+	// Create a policy
+	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
 	if effect != "" && resource != "" {
 		authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
 			Version: "2012-10-17",
@@ -70,14 +83,15 @@ func generatePolicy(principalID, effect, resource string) events.APIGatewayCusto
 		}
 	}
 
+	// Query the user-profile to inject tenant-id in the header
+	userProfile := domain.UserProfile{ID: principalID}
+	res_userProfile, _ := authService.LoadUserProfile(userProfile)
 	// Add variables in context
-	authResponse.Context = map[string]interface{}{
-		"tenant-id":  "tenant-999",
-		"issuer-id":  123,
+	if res_userProfile != nil {
+		authResponse.Context = map[string]interface{}{
+			"tenant-id":  res_userProfile.TenantID,
+		}
 	}
-
-	log.Debug().Interface("authResponse : ", authResponse).Msg("")
-	log.Debug().Interface("authResponse.Context : ", authResponse.Context).Msg("")
 
 	return authResponse
 }
@@ -86,6 +100,7 @@ func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorize
 	log.Debug().Msg("lambdaHandler")
 	log.Debug().Interface("request : ", request).Msg("+++++")
 	
+	// Parse the method and path
 	arn := strings.SplitN(request.MethodArn, "/", 4)
 	method := arn[2]
 	path := arn[3]
@@ -93,6 +108,7 @@ func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorize
 	log.Debug().Interface("method : ", method).Msg("")
 	log.Debug().Interface("path : ", path).Msg("")
 
+	// Extract the token from header
 	token := request.AuthorizationToken
 	tokenSlice := strings.Split(token, " ")
 	var bearerToken string
@@ -104,14 +120,24 @@ func lambdaHandler(ctx context.Context, request events.APIGatewayCustomAuthorize
 	}
 
 	beared_token := domain.Credential{ Token: bearerToken }
+
+	// Check only the JWT signed
 	//response, err := authService.TokenValidation(beared_token) // Check just the token 
+	
+	// Check the JWT and scope
 	response, err := authService.ScopeValidation(beared_token, path, method) //Check token and scope
 	if err != nil {
 		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
 	}
 	
+	//Extract user for JWT
+	claims, err := authService.ExtractClaims(beared_token)
+	if err != nil {
+		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
+	}
+
 	if response == true {
-		return generatePolicy("user", "Allow", request.MethodArn), nil
+		return generatePolicy(claims.Username, "Allow", request.MethodArn), nil
 	} else {
 		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized")
 	}
