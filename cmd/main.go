@@ -14,6 +14,9 @@ import(
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
 
 )
 
@@ -21,8 +24,10 @@ var (
 	logLevel		=	zerolog.DebugLevel // InfoLevel DebugLevel
 	version			=	"lambda-go-auth-apigw version 1.0"
 	jwtKey			=	"my_secret_key"
+	ssmJwtKwy		=	"key-secret"
 	tableName		=	"user-profile"
 	authService		*service.AuthService
+	region			=	"us-east-2"
 )
 
 // Loading ENV variables
@@ -41,6 +46,14 @@ func getEnv(){
 	if os.Getenv("VERSION") !=  "" {
 		version = os.Getenv("VERSION")
 	}
+
+	if os.Getenv("JWT_KEY") !=  "" {
+		jwtKey = os.Getenv("JWT_KEY")
+	}
+
+	if os.Getenv("AWS_REGION") !=  "" {
+		region = os.Getenv("AWS_REGION")
+	}
 }
 
 func init() {
@@ -51,6 +64,25 @@ func init() {
 
 func main() {
 	log.Debug().Msg("main")
+
+	// Get Parameter-Store
+	awsConfig := &aws.Config{Region: aws.String(region)}
+	awsSession, err := session.NewSession(awsConfig)
+	if err != nil {
+		panic("configuration error create new aws session " + err.Error())
+	}
+	
+	ssmsvc := ssm.New(awsSession, awsConfig)
+	param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+		Name:           aws.String(ssmJwtKwy),
+		WithDecryption: aws.Bool(false),
+	})
+	if err != nil {
+		panic("configuration error get parameter " + err.Error())
+	}
+	jwtKey = *param.Parameter.Value
+
+	log.Debug().Interface("jwtKey : ", jwtKey).Msg("")
 
 	// Create a repository
 	authRepository, err := repository.NewAuthRepository(tableName)

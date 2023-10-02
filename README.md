@@ -45,4 +45,3 @@ Just test and signed validation the JWT
         --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
 
-,,
