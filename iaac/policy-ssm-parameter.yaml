@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Policy SSM Parameter Store and Attach in a role
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 1.0
+  Env:
+    Description: Execution environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prd
+  RoleAssociation:
+    Type: String
+    Default: lambda-go-auth-apigw-role-mf0av0h1
+  ARNSsm:
+    Type: String
+    Default: arn:aws:ssm:us-east-2:908671954593:parameter/key-secret
+
+Resources:
+  customPolicyForSecretManager:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: customSSMParameterPolicy-lambda-go-auth-apigw
+      Description: Customer managed policy for get parameter store
+      Path: '/'
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: 
+              - 'ssm:GetParameter'
+            Resource: !Ref ARNSsm
+      Roles: # attach this policy to the list of existing roles
+          - !Ref RoleAssociation
