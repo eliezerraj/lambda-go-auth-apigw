@@ -17,8 +17,8 @@ type JwtData struct {
 }
 
 type UserProfile struct {
-	ID				string	`json:"id,omitempty"`
-	SK				string	`json:"sk,omitempty"`
-	TenantID		string	`json:"tenant_id,omitempty"`
+	ID				string		`json:"id,omitempty"`
+	SK				string		`json:"sk,omitempty"`
+	TenantID		string		`json:"tenant_id,omitempty"`
 	Updated_at  	time.Time 	`json:"updated_at,omitempty"`
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"strings"
+	"context"
 
 	"github.com/rs/zerolog/log"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 	"github.com/golang-jwt/jwt/v4"
+
+	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 var childLogger = log.With().Str("service", "AuthService").Logger()
@@ -27,8 +30,11 @@ func NewAuthService(jwtKey []byte,
 	}
 }
 
-func (a AuthService) TokenValidation(credential domain.Credential) (bool, error){
+func (a AuthService) TokenValidation(ctx context.Context, credential domain.Credential) (bool, error){
 	childLogger.Debug().Msg("TokenValidation")
+
+	_, root := xray.BeginSubsegment(ctx, "Service.TokenValidation")
+	defer root.Close(nil)
 
 	claims := &domain.JwtData{}
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
@@ -49,113 +55,93 @@ func (a AuthService) TokenValidation(credential domain.Credential) (bool, error)
 	return true ,nil
 }
 
-func (a AuthService) ScopeValidation(credential domain.Credential, path string, method string) (bool, error){
+func (a AuthService) ScopeValidation(ctx context.Context, credential domain.Credential, path string, method string) (*domain.JwtData, bool, error){
 	childLogger.Debug().Msg("ScopeValidation")
-	log.Debug().Str("path", path ).Msg("++")
-	log.Debug().Str("method", method).Msg("++")
+	log.Debug().Str("path", path ).Msg("")
+	log.Debug().Str("method", method).Msg("")
+	log.Debug().Interface("credential", credential).Msg("")
+
+	// Xray
+	_, root := xray.BeginSubsegment(ctx, "Service.ScopeValidation")
+	defer root.Close(nil)
 
 	// Check the JWT signature
 	claims := &domain.JwtData{}
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return a.jwtKey, nil
 	})
+
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
-			return false, erro.ErrStatusUnauthorized
+			return nil, false, erro.ErrStatusUnauthorized
 		}
-		return false, erro.ErrTokenExpired
+		return nil,false, erro.ErrTokenExpired
 	}
 	if !tkn.Valid {
-		return false, erro.ErrStatusUnauthorized
+		return nil,false, erro.ErrStatusUnauthorized
 	}
 
-	log.Debug().Interface("claims.Scope : ", claims.Scope).Msg("++")
+	log.Debug().Interface("claims.Scope : ", claims.Scope).Msg("")
+	log.Debug().Interface("claims.Username : ", claims.Username).Msg("")
 
 	// Valid the scope in a naive way
-	isValidPath := false
+	var pathScope, methodScope string
 	for _, scopeListItem := range claims.Scope {
-		isValidPath = false
-
+		// Split ex: versiom.read in 2 parts
 		scopeSlice := strings.Split(scopeListItem, ".")
-
+		pathScope = scopeSlice[0]
+		
 		// In this case when just method informed it means the all methods are allowed (ANY)
 		// Ex: path (info) or (admin)
+		// if lenght is 1, means only the path was given
 		if len(scopeSlice) == 1 {
-			if path == "admin" {
+			if pathScope == "admin" {
 				log.Debug().Msg("++++++++++ TRUE ADMIN ++++++++++++++++++")
-				return true ,nil
+				return claims, true ,nil
 			}
-			if strings.Contains(path, "/" + scopeSlice[0]) {
-				log.Debug().Msg("++++++++++ NO ADMIN ++++++++++++++++++")
-				return true ,nil
+			// if the path is equal scope, ex: info (informed) is equal info (scope)
+			if strings.Contains(path, scopeSlice[0]) {
+				log.Debug().Msg("++++++++++ NO ADMIN BUT SCOPE ANY ++++++++++++++++++")
+				return claims, true ,nil
 			}
+		// both was given path + method
 		} else {
 			// In this case it would check the method and the scope(path)
 			// Ex: path/scope (version.read)
-			for _, scopeItem := range scopeSlice {
-				log.Debug().Interface("=====>  scopeItem :", scopeItem).Msg(" <=====")
+			log.Debug().Interface("scopeListItem....", scopeListItem).Msg("")
 
-				if strings.Contains(path, "/" + scopeItem) {
-					log.Debug().Str(path, scopeItem ).Msg(" ")
-					isValidPath = true
-					continue 
-				}
-				if isValidPath == true {
-					log.Debug().Str(method, scopeItem ).Msg(" ")
-					if method == "ANY" {
-						return true ,nil
-					}
-					if method == "GET" && scopeItem == "read" {
-						return true ,nil
-					}
-					if method == "POST" && scopeItem == "write" {
-						return true ,nil
-					}
-					if method == "PUT" && scopeItem == "write" {
-						return true ,nil
-					}
-					if method == "PATCH" && scopeItem == "update" {
-						return true ,nil
-					}
-					if method == "DELETE" && scopeItem == "delete" {
-						return true ,nil
-					}
-				}
+			methodScope = scopeSlice[1]
+
+			if pathScope == path {
+				log.Debug().Msg("PASS - Paths equals !!!")
+				if method == "ANY" {
+					log.Debug().Msg("ALLOWED - method ANY!!!")
+					return claims, true ,nil
+				} else if 	(method == "GET" && methodScope == "read" ) || 
+							(method == "POST" && methodScope == "write" ) ||
+							(method == "PUT" && methodScope == "write") ||
+							(method == "PATCH" && methodScope == "update") ||
+							(method == "DELETE" && methodScope == "delete"){
+					log.Debug().Msg("ALLOWED - Methods equals !!!")
+					return claims, true ,nil
+				} 
 			}
 		}
 	}
-	return false ,nil
+	log.Debug().Msg("SCOPE informed not found !!!!")
+	return nil, false ,nil
 }
 
-func (a AuthService) LoadUserProfile(user domain.UserProfile) (*domain.UserProfile, error) {
+func (a AuthService) LoadUserProfile(ctx context.Context, user domain.UserProfile) (*domain.UserProfile, error) {
 	childLogger.Debug().Msg("LoadUserProfile")
-	
+
+	_, root := xray.BeginSubsegment(ctx, "Service.LoadUserProfile")
+	defer root.Close(nil)
+
 	userProfile, err := a.authRepository.LoadUserProfile(user)
 	if err != nil {
 		return nil, err
 	}
 
 	return userProfile, nil
-}
-
-func (a AuthService) ExtractClaims(credential domain.Credential) (*domain.JwtData, error){
-	childLogger.Debug().Msg("ExtractClaims")
-
-	claims := &domain.JwtData{}
-	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
-		return a.jwtKey, nil
-	})
-
-	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return nil, erro.ErrStatusUnauthorized
-		}
-		return nil, erro.ErrTokenExpired
-	}
-
-	if !tkn.Valid {
-		return nil, erro.ErrStatusUnauthorized
-	}
-
-	return claims ,nil
 }
