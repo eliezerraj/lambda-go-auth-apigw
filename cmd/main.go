@@ -205,12 +205,10 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	// Check the JWT signed and scope
 	claims, response, err := authService.ScopeValidation(ctx, beared_token, path, method) //Check token and scope
 	if err != nil {
-		log.Error().Msg("authService.ScopeValidation")
-
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation failed"), nil
+		return generatePolicyError(ctx, request.MethodArn , err.Error()), nil
 	}
 	if response == false {
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation not allowed"), nil
+		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
 	}
 
 	if response == true {
