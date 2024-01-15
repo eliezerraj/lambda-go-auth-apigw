@@ -23,7 +23,7 @@ import(
 
 var (
 	logLevel		=	zerolog.DebugLevel // InfoLevel DebugLevel
-	version			=	"lambda-go-auth-apigw version 1.0"
+	version			=	"lambda-go-auth-apigw version 1.1"
 	jwtKey			=	"my_secret_key"
 	ssmJwtKwy		=	"key-secret"
 	tableName		=	"user-profile"
@@ -179,9 +179,13 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	log.Debug().Interface("method : ", method).Msg("")
 	log.Debug().Interface("path : ", path).Msg("")
 
+	var token string
 	// Extract the token from header
-	token := request.Headers["Authorization"]
-
+	if (request.Headers["Authorization"] != "")  {
+		token = request.Headers["Authorization"]
+	} else if (request.Headers["authorization"] != "") {
+		token = request.Headers["authorization"]
+	}
 	//Check type of token
 	var bearerToken string
 	tokenSlice := strings.Split(token, " ")
@@ -194,7 +198,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	log.Debug().Str("bearerToken : ", bearerToken).Msg("")
 
 	if len(bearerToken) < 1 {
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Token Null"), nil
+		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Token not informed !!!!"), nil
 	}
 
 	beared_token := domain.Credential{ Token: bearerToken }
@@ -244,7 +248,7 @@ func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuth
 	if len(tokenSlice) > 1 {
 		bearerToken = tokenSlice[len(tokenSlice)-1]
 	}else{
-		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized - Token Null")
+		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Token not informed !!!!"), nil
 	}
 
 	beared_token := domain.Credential{ Token: bearerToken }
