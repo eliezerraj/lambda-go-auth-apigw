@@ -1,0 +1,59 @@
+#CODE_BUILD_ROLE_ARN arn:aws:iam::992382474575:role/crossaccount-dev-role
+
+version: 0.2
+env:
+  variables:
+    PACKAGE: "github.com/lambda-go-auth-apigw"
+    CODE_BUILD_ROLE_ARN: arn:aws:iam::992382474575:role/crossaccount-dev-role
+    ROLE_SESSION_NAME: crossaccount-dev-role
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.20
+    commands:
+      - aws sts get-caller-identity
+
+      - echo $CODE_BUILD_ROLE_ARN
+      - echo $ROLE_SESSION_NAME
+
+      - CREDENTIALS=$(aws sts assume-role --role-arn $CODE_BUILD_ROLE_ARN --role-session-name $ROLE_SESSION_NAME --duration-seconds 900)
+
+      - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')" 
+      - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')" 
+      - export AWS_SESSION_TOKEN="$(echo ${CREDENTIALS} | jq -r '.Credentials.SessionToken')" 
+      - export AWS_EXPIRATION=$(echo ${CREDENTIALS} | jq -r '.Credentials.Expiration') 
+   
+      - aws sts get-caller-identity
+
+        # AWS Codebuild Go images use /go for the $GOPATH so copy the src code into that dir structure
+      - echo INSTALL installing Go dependencies...
+      - mkdir -p "/go/src/$(dirname ${PACKAGE})"
+      - ln -s "${CODEBUILD_SRC_DIR}" "/go/src/${PACKAGE}"
+
+      # Print all environment variables (handy for AWS CodeBuild logs)
+      - echo Print all enviroment variables ...
+      - env
+
+  pre_build:
+    commands:
+      - echo PRE_BUILD installing source dependencies on `date`
+      - echo Make sure we are in the project directory within our GOPATH 
+      - cd "/go/src/${PACKAGE}"
+      - echo Fetch all dependencies
+      - go get -t ./...
+
+  build:
+    commands:
+      - echo Build our go application on `date`
+      - GOOD=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./cmd/main.go
+
+  post_build:
+      commands:
+      - echo POST_BUILD Zipping go application on `date`
+      - zip -r -q ./main.zip .
+
+artifacts:
+  files:
+    - main.zip
+    - "**/*"

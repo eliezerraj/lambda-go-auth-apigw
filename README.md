@@ -7,7 +7,6 @@ Lambda apigw authorizer for check JWT OAuth 2.0
 There is a table user-profile where the lambda get some data from the profile and inject into http headers. 
 
 
-
 ![Alt text](image.png)
 
 This lambda must be used attached as an authorizer into an ApiGateway
