@@ -108,10 +108,11 @@
                         "configuration": {
                             "ActionMode": "CREATE_UPDATE",
                             "Capabilities": "CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND",
-                            "RoleArn": "arn:aws:iam::908671954593:role/CloudFormation-Architecture-Eliezer",
+                            "RoleArn": "arn:aws:iam::992382474575:role/cross-account-target-iaac",
                             "StackName": "lambda-go-auth-apigw",
-                            "TemplatePath": "BuildArtifact::/iaac/lambda_public.yaml"
+                            "TemplatePath": "BuildArtifact::lambda_public.yaml"
                         },
+                        "roleArn": "arn:aws:iam::992382474575:role/crossaccount-target-role",
                         "outputArtifacts": [],
                         "inputArtifacts": [
                             {
@@ -123,11 +124,6 @@
                 ]
             }
         ],
-        "version": 7
-    },
-    "metadata": {
-        "pipelineArn": "arn:aws:codepipeline:us-east-2:908671954593:lambda-go-auth-apigw",
-        "created": 1706829891.792,
-        "updated": 1706835214.665
+        "version": 11
     }
 }

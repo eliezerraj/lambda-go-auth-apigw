@@ -52,7 +52,7 @@ Parameters:
     Default: 3
   S3BucketParam:
     Type: String 
-    Default: eliezerraj-992382474575-codepipeline
+    Default: eliezerraj-908671954593-codepipeline-cross-acc
   S3KeyParam:
     Type: String 
     Default: lambda-go-auth-apigw/main.zip
