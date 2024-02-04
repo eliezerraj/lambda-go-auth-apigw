@@ -2,13 +2,15 @@ version: 0.2
 
 env:
   variables:
-    FUNCTION_NAME: lambda-go-autentication
+    FUNCTION_NAME: lambda-go-auth-apigw
     ALIAS_NAME: live
-    BUCKET_NAME: eliezerraj-908671954593-artifacts
-    BUCKET_FOLDER_NAME: lambda-go-autentication
-    CODEDEPLOY_APPLICATION_NAME: lambda-go-autentication-deploy
-    CODEDEPLOY_APPLICATION_GROUP: lambda-go-autentication-deploy-group
+    BUCKET_NAME: codepipeline-us-east-2-237656914886
+    BUCKET_FOLDER_NAME: lambda-go-auth-apigw
+    CODEDEPLOY_APPLICATION_NAME: lambda-go-auth-apigw-deploy
+    CODEDEPLOY_APPLICATION_GROUP: lambda-go-auth-apigw-deploy-group
     REGION_DEPLOYMENT: us-east-2
+    CODE_BUILD_ROLE_ARN: arn:aws:iam::992382474575:role/crossaccount-target-role
+    ROLE_SESSION_NAME: crossaccount-dev-role
 
 phases:
   pre_build: 
@@ -21,6 +23,20 @@ phases:
       - echo $CODEDEPLOY_APPLICATION_GROUP
       - echo $REGION_DEPLOYMENT
 
+      - aws sts get-caller-identity
+
+      - echo $CODE_BUILD_ROLE_ARN
+      - echo $ROLE_SESSION_NAME
+
+      - CREDENTIALS=$(aws sts assume-role --role-arn $CODE_BUILD_ROLE_ARN --role-session-name $ROLE_SESSION_NAME --duration-seconds 900)
+
+      - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')" 
+      - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')" 
+      - export AWS_SESSION_TOKEN="$(echo ${CREDENTIALS} | jq -r '.Credentials.SessionToken')" 
+      - export AWS_EXPIRATION=$(echo ${CREDENTIALS} | jq -r '.Credentials.Expiration') 
+   
+      - aws sts get-caller-identity
+      
   build: 
     commands: 
       - echo BUILD update lambda-function...
