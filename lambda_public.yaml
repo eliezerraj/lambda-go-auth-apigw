@@ -19,9 +19,6 @@ Parameters:
   ApplicationName:
     Type: String
     Default: lambda-go-auth-apigw
-  OwnerName:
-    Type: 
-    Default: architecture
   ComponentName:
     Type: String
     Default: lambda
@@ -52,7 +49,7 @@ Parameters:
     Default: 3
   S3BucketParam:
     Type: String 
-    Default: eliezerraj-908671954593-codepipeline-cross-acc
+    Default: codepipeline-us-east-2-237656914886
   S3KeyParam:
     Type: String 
     Default: lambda-go-auth-apigw/main.zip
@@ -150,8 +147,6 @@ Resources:
         Value: !Ref ComponentName
       - Key: pci_classification
         Value: !Ref PciClassificationName
-      - Key: owner
-        Value: !Ref OwnerName
 
   LambdaFunctionLogGroup:
     Type: AWS::Logs::LogGroup

@@ -53,8 +53,7 @@
                         },
                         "runOrder": 1,
                         "configuration": {
-                            "EnvironmentVariables": "[{\"name\":\"CODE_BUILD_ROLE_ARN\",\"value\":\"arn:aws:iam::992382474575:role/crossaccount-target-role\",\"type\":\"PLAINTEXT\"}]",
-                            "ProjectName": "lambda-go-auth-apigw-9923824745750v2"
+                            "ProjectName": "lambda-go-auth-apigw-992382474575"
                         },
                         "outputArtifacts": [
                             {
@@ -72,6 +71,11 @@
                 ]
             }
         ],
-        "version": 5
+        "version": 1
+    },
+    "metadata": {
+        "pipelineArn": "arn:aws:codepipeline:us-east-2:908671954593:lambda-go-auth-apigw-992382474575",
+        "created": 1707009047.462,
+        "updated": 1707009047.462
     }
 }

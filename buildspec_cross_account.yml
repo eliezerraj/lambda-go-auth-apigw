@@ -4,7 +4,7 @@ version: 0.2
 env:
   variables:
     PACKAGE: "github.com/lambda-go-auth-apigw"
-    CODE_BUILD_ROLE_ARN: arn:aws:iam::992382474575:role/crossaccount-dev-role
+    CODE_BUILD_ROLE_ARN: arn:aws:iam::992382474575:role/crossaccount-target-role
     ROLE_SESSION_NAME: crossaccount-dev-role
 
 phases:
