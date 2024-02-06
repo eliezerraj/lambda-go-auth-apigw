@@ -10,7 +10,7 @@ env:
     CODEDEPLOY_APPLICATION_GROUP: lambda-go-auth-apigw-deploy-group
     REGION_DEPLOYMENT: us-east-2
     CODE_BUILD_ROLE_ARN: arn:aws:iam::992382474575:role/crossaccount-target-role
-    ROLE_SESSION_NAME: crossaccount-dev-role
+    ROLE_SESSION_NAME: crossaccount-target-role
 
 phases:
   pre_build: 
@@ -59,7 +59,6 @@ phases:
       - aws s3 cp appspec.yml s3://${BUCKET_NAME}/${BUCKET_FOLDER_NAME}/
 
       - echo Start CodeDeploy rollout...
-      - echo aws deploy create-deployment --region=${REGION_DEPLOYMENT} --application-name ${CODEDEPLOY_APPLICATION_NAME} --deployment-group-name ${CODEDEPLOY_APPLICATION_GROUP} --s3-location bucket=${BUCKET_NAME}/${BUCKET_FOLDER_NAME},bundleType=yaml,key=appspec.yml
       - aws deploy create-deployment --region=${REGION_DEPLOYMENT} --application-name ${CODEDEPLOY_APPLICATION_NAME} --deployment-group-name ${CODEDEPLOY_APPLICATION_GROUP} --s3-location bucket=${BUCKET_NAME}/${BUCKET_FOLDER_NAME},bundleType=yaml,key=appspec.yml
 
 artifacts:
