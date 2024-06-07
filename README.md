@@ -44,3 +44,23 @@ Just test and signed validation the JWT
         --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
 
+## Test via console
+
+      {
+            "headers": { "authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWRtaW4iXSwiZXhwIjoxNzE3NzY0ODUzfQ.6NHRWHqNI8JnrSW24jrjBK4suYHW3xVauFlkuG-Qy-0" },
+            "methodArn": "rn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
+      }
+
+## Lambda Env Variables
+
+      APP_NAME	lambda-go-auth-apigw
+      CRL_BUCKET_NAME_KEY	eliezerraj-908671954593-mtls-truststore
+      CRL_FILE_KEY	crl_ca.pem
+      CRL_FILE_PATH	/
+      CRL_VALIDATION	false
+      JWT_KEY	my_secret_key
+      REGION	us-east-2
+      SCOPE_VALIDATION	true
+      SSM_JWT_KEY	key-secret
+      TABLE_NAME	user_login_2
+      VERSION	1.0

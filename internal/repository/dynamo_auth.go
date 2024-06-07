@@ -1,17 +1,17 @@
 package repository
 
 import(
-
-	"github.com/lambda-go-auth-apigw/internal/core/domain"
+	"context"
+	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 )
 
-func (r *AuthRepository) LoadUserProfile(user domain.UserProfile) (*domain.UserProfile, error){
+func (r *AuthRepository) LoadUserProfile(ctx context.Context, user core.UserProfile) (*core.UserProfile, error){
 	childLogger.Debug().Msg("LoadUserProfile")
 
 	var keyCond expression.KeyConditionBuilder
@@ -19,8 +19,8 @@ func (r *AuthRepository) LoadUserProfile(user domain.UserProfile) (*domain.UserP
 	id := "USER-" + user.ID
 
 	keyCond = expression.KeyAnd(
-		expression.Key("id").Equal(expression.Value(id)),
-		expression.Key("sk").BeginsWith(id),
+		expression.Key("ID").Equal(expression.Value(id)),
+		expression.Key("SK").BeginsWith(id),
 	)
 
 	expr, err := expression.NewBuilder().
@@ -38,14 +38,14 @@ func (r *AuthRepository) LoadUserProfile(user domain.UserProfile) (*domain.UserP
 								KeyConditionExpression:    expr.KeyCondition(),
 	}
 
-	result, err := r.client.Query(key)
+	result, err := r.client.Query(ctx, key)
 	if err != nil {
 		childLogger.Error().Err(err).Msg("error message")
 		return nil, erro.ErrQuery
 	}
 
-	userProfile := []domain.UserProfile{}
-	err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &userProfile)
+	userProfile := []core.UserProfile{}
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &userProfile)
     if err != nil {
 		childLogger.Error().Err(err).Msg("error message")
 		return nil, erro.ErrUnmarshal

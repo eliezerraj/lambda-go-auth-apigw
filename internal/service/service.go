@@ -1,12 +1,13 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"context"
-
+	"crypto/x509"
 	"github.com/rs/zerolog/log"
 
-	"github.com/lambda-go-auth-apigw/internal/core/domain"
+	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 	"github.com/golang-jwt/jwt/v4"
@@ -30,13 +31,13 @@ func NewAuthService(jwtKey []byte,
 	}
 }
 
-func (a AuthService) TokenValidation(ctx context.Context, credential domain.Credential) (bool, error){
+func (a AuthService) TokenValidation(ctx context.Context, credential core.Credential) (bool, error){
 	childLogger.Debug().Msg("TokenValidation")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.TokenValidation")
 	defer root.Close(nil)
 
-	claims := &domain.JwtData{}
+	claims := &core.JwtData{}
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return a.jwtKey, nil
 	})
@@ -55,7 +56,7 @@ func (a AuthService) TokenValidation(ctx context.Context, credential domain.Cred
 	return true ,nil
 }
 
-func (a AuthService) ScopeValidation(ctx context.Context, credential domain.Credential, path string, method string) (*domain.JwtData, bool, error){
+func (a AuthService) ScopeValidation(ctx context.Context, credential core.Credential, path string, method string) (*core.JwtData, bool, error){
 	childLogger.Debug().Msg("ScopeValidation")
 	log.Debug().Str("path", path ).Msg("")
 	log.Debug().Str("method", method).Msg("")
@@ -66,7 +67,7 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential domain.Cred
 	defer root.Close(nil)
 
 	// Check the JWT signature
-	claims := &domain.JwtData{}
+	claims := &core.JwtData{}
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return a.jwtKey, nil
 	})
@@ -132,16 +133,38 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential domain.Cred
 	return nil, false ,nil
 }
 
-func (a AuthService) LoadUserProfile(ctx context.Context, user domain.UserProfile) (*domain.UserProfile, error) {
+func (a AuthService) LoadUserProfile(ctx context.Context, user core.UserProfile) (*core.UserProfile, error) {
 	childLogger.Debug().Msg("LoadUserProfile")
 
 	_, root := xray.BeginSubsegment(ctx, "Service.LoadUserProfile")
 	defer root.Close(nil)
 
-	userProfile, err := a.authRepository.LoadUserProfile(user)
+	userProfile, err := a.authRepository.LoadUserProfile(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
 	return userProfile, nil
+}
+
+func(a AuthService) VerifyCertCRL(crl []byte, 
+									cacert *x509.Certificate) (bool, error){
+	childLogger.Debug().Msg("VerifyCertCRL")
+
+	certSerialNumber := cacert.SerialNumber
+	fmt.Println(certSerialNumber)
+
+	_crl, err := x509.ParseCRL(crl)
+	if err != nil {
+		return false, err
+	}
+
+	for _, revokedCert := range _crl.TBSCertList.RevokedCertificates {
+		if revokedCert.SerialNumber.Cmp(certSerialNumber) == 0 {
+			return true, nil
+		}
+	}
+
+	fmt.Println(cacert.SerialNumber)
+	return false, nil
 }

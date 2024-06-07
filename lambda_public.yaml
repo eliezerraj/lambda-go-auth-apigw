@@ -120,11 +120,18 @@ Resources:
       Handler: !Ref HandlerName
       Timeout: !Ref Timeout
       Runtime: !Ref Runtime
+      Environment:
+        Variables:
+          APP_NAME: 'lambda-go-auth-apigw'
+          REGION: 'us-east-2'
+          VERSION: '1.0'
+          JWT_KEY: 'my_secret_key'
+          SSM_JWT_KEY: 'key-secret'
+          TABLE_NAME: 'user_login'
       Role: 
         Fn::GetAtt: 
           - "LambdaExecutionRole"
           - "Arn"
-      Runtime: !Ref Runtime
       Code: 
         S3Bucket: !Ref S3BucketParam
         S3Key: !Ref S3KeyParam

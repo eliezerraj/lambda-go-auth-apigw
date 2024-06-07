@@ -6,7 +6,7 @@ import (
 	"context"
 	"github.com/rs/zerolog"
 
-	"github.com/lambda-go-auth-apigw/internal/core/domain"
+	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/repository"
 
 )
