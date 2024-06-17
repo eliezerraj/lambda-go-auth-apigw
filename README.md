@@ -46,10 +46,25 @@ Just test and signed validation the JWT
 
 ## Test via console
 
+      no mTLS
       {
-            "headers": { "authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWRtaW4iXSwiZXhwIjoxNzE3NzY0ODUzfQ.6NHRWHqNI8JnrSW24jrjBK4suYHW3xVauFlkuG-Qy-0" },
+            "headers": { "authorization": "eyJhb.....uG-Qy-0" },
             "methodArn": "rn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
       }
+
+      with mTLS
+      {
+            "headers": { "authorization": "eyJhbGc......lkuG-Qy-0" },
+                  "methodArn": "rn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info",
+                  "requestContext": {
+                        "identity": {
+                              "clientCert": {
+                              "clientCertPem": "-----BEGIN CERTIFICATE-----\nMIIF......aw==\n-----END CERTIFICATE-----\n"
+                              }
+                        }
+            }
+      }
+
 
 ## Lambda Env Variables
 

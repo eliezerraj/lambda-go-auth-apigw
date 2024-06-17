@@ -91,7 +91,10 @@ func main() {
 	lambda.Start(lambdaHandlerRequest)
 }
 
-func generatePolicy(ctx context.Context, principalID string, effect string, resource string) events.APIGatewayCustomAuthorizerResponse {
+func generatePolicy(ctx context.Context, 
+					principalID string, 
+					effect string, 
+					resource string) events.APIGatewayCustomAuthorizerResponse {
 	log.Debug().Msg("generatePolicy")
 
 	_, root := xray.BeginSubsegment(ctx, "Handler.generatePolicy")
@@ -125,7 +128,9 @@ func generatePolicy(ctx context.Context, principalID string, effect string, reso
 	return authResponse
 }
 
-func generatePolicyError(ctx context.Context, resource string, message string) events.APIGatewayCustomAuthorizerResponse {
+func generatePolicyError(ctx context.Context, 
+						resource string, 
+						message string) events.APIGatewayCustomAuthorizerResponse {
 	log.Debug().Msg("generatePolicyError")
 
 	_, root := xray.BeginSubsegment(ctx, "Handler.generatePolicyError")
@@ -153,6 +158,7 @@ func generatePolicyError(ctx context.Context, resource string, message string) e
 	return authResponse
 }
 
+// Integration APIGW as Request (USED)
 // When use lambda authorizer type Request
 func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAuthorizerRequestTypeRequest ) (events.APIGatewayCustomAuthorizerResponse, error) {
 	log.Debug().Msg("lambdaHandlerRequest")
@@ -162,10 +168,31 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	_, root := xray.BeginSubsegment(ctx, "Handler.lambdaHandlerRequest")
 	defer root.Close(nil)
 
+	// Check CRL
+	if appServer.InfoApp.CrlValidation == true {
+		CertX509PemDecoded := request.RequestContext.Identity.ClientCert.ClientCertPem
+		log.Debug().Interface("CertX509PemDecoded : ", CertX509PemDecoded).Msg("")
+
+		certX509, err := util.ParsePemToCertx509(CertX509PemDecoded)
+		if err != nil {
+			log.Debug().Msg("Erro ParsePemToCertx509!!!")
+		}
+		response_crl, err := authService.VerifyCertCRL(*load_crl_pem, certX509)
+		if err != nil {
+			log.Debug().Msg("Unauthorized Cert Revoked !!!")
+			//return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
+		}
+		log.Debug().Interface(" ====> CrlValidation response : ", response_crl).Msg("")
+		// response_crl is true means the cert is revoked
+		if response_crl == true {
+			return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate revoked"), nil
+		}
+	}
+
 	// Check the size of arn
 	if (len(request.MethodArn) < 6){
 		log.Debug().Str("request.MethodArn size error : ", string(len(request.MethodArn))).Msg("")
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized"), nil
+		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized arr mal-formed"), nil
 	}
 
 	// Parse the method and path
@@ -199,7 +226,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 
 	if len(bearerToken) < 1 {
 		log.Debug().Msg("Empty Token")
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Token not informed !!!!"), nil
+		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized token not informed !!!"), nil
 	}
 
 	beared_token := core.Credential{ Token: bearerToken }
@@ -211,24 +238,6 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	} else {
 		// Check only the JWT signed (NO SCOPE)
 		response, err = authService.TokenValidation(ctx, beared_token)
-	}
-
-	// Check which kind of validation JWT
-	if appServer.InfoApp.CrlValidation == true {
-		CertX509PemDecoded := request.RequestContext.Identity.ClientCert.ClientCertPem
-		log.Debug().Interface("CertX509PemDecoded : ", CertX509PemDecoded).Msg("")
-		//request.RequestContext.Identity.ClientCert.SerialNumber
-		certX509, err := util.ParsePemToCertx509(CertX509PemDecoded)
-		if err != nil {
-			log.Debug().Msg("Erro ParsePemToCertx509!!!")
-		}
-
-		response, err := authService.VerifyCertCRL(*load_crl_pem, certX509)
-		if err != nil {
-			log.Debug().Msg("Unauthorized Cert Revoked !!!")
-			//return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
-		}
-		log.Debug().Interface("CrlValidation : ", response).Msg("")
 	}
 
 	if err != nil {
@@ -247,6 +256,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	}
 }
 
+// Integration APIGW as TOKEN (NO USED)
 // When use lambda authorizer type Token
 func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
 	log.Debug().Msg("lambdaHandlerToken")
