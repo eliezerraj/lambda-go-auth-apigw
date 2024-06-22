@@ -6,13 +6,13 @@ import (
 	"context"
 	"crypto/x509"
 	"github.com/rs/zerolog/log"
-
+	
+	"github.com/lambda-go-auth-apigw/internal/lib"
 	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 	"github.com/golang-jwt/jwt/v4"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
 var childLogger = log.With().Str("service", "AuthService").Logger()
@@ -34,8 +34,8 @@ func NewAuthService(jwtKey []byte,
 func (a AuthService) TokenValidation(ctx context.Context, credential core.Credential) (bool, error){
 	childLogger.Debug().Msg("TokenValidation")
 
-	_, root := xray.BeginSubsegment(ctx, "Service.TokenValidation")
-	defer root.Close(nil)
+	span := lib.Span(ctx, "service.tokenValidation")	
+    defer span.End()
 
 	claims := &core.JwtData{}
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
@@ -62,9 +62,8 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 	log.Debug().Str("method", method).Msg("")
 	log.Debug().Interface("credential", credential).Msg("")
 
-	// Xray
-	_, root := xray.BeginSubsegment(ctx, "Service.ScopeValidation")
-	defer root.Close(nil)
+	span := lib.Span(ctx, "service.scopeValidation")	
+    defer span.End()
 
 	// Check the JWT signature
 	claims := &core.JwtData{}
@@ -136,8 +135,8 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 func (a AuthService) LoadUserProfile(ctx context.Context, user core.UserProfile) (*core.UserProfile, error) {
 	childLogger.Debug().Msg("LoadUserProfile")
 
-	_, root := xray.BeginSubsegment(ctx, "Service.LoadUserProfile")
-	defer root.Close(nil)
+	span := lib.Span(ctx, "service.loadUserProfile")	
+    defer span.End()
 
 	userProfile, err := a.authRepository.LoadUserProfile(ctx, user)
 	if err != nil {
@@ -147,9 +146,13 @@ func (a AuthService) LoadUserProfile(ctx context.Context, user core.UserProfile)
 	return userProfile, nil
 }
 
-func(a AuthService) VerifyCertCRL(crl []byte, 
+func(a AuthService) VerifyCertCRL(	ctx context.Context,
+									crl []byte, 
 									cacert *x509.Certificate) (bool, error){
 	childLogger.Debug().Msg("VerifyCertCRL")
+
+	span := lib.Span(ctx, "service.verifyCertCRL")	
+    defer span.End()
 
 	certSerialNumber := cacert.SerialNumber
 	fmt.Println(certSerialNumber)

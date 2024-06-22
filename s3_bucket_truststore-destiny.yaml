@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template create s3 bucket/policy-destinnt
+
+Parameters:
+  Versao:
+    Type: String
+    Default: 0
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  S3BucketName:
+    Description: Bucket Name
+    Type: String
+    
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      Tags:
+      - Key: env
+        Value: !Ref Env
+      - Key: stack
+        Value: !Sub ${AWS::StackName}
+      - Key: name
+        Value: !Join ['', [!Ref S3BucketName, "-Bucket"]]
+      - Key: resource
+        Value: bucket-s3
+
+Outputs:
+  BucketName:
+    Value: !Ref S3Bucket
+    Description: The name of the bucket
+  BucketArn: 
+    Value: !GetAtt S3Bucket.Arn
+    Description: The buckey ARN

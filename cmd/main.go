@@ -9,6 +9,7 @@ import(
 	"github.com/rs/zerolog/log"
 	"github.com/lambda-go-auth-apigw/internal/service"
 	"github.com/lambda-go-auth-apigw/internal/repository"
+	"github.com/lambda-go-auth-apigw/internal/lib"
 
 	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/util"
@@ -20,7 +21,12 @@ import(
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/config"
 
-	"github.com/aws/aws-xray-sdk-go/xray"
+	"go.opentelemetry.io/contrib/propagators/aws/xray"
+	"go.opentelemetry.io/otel"
+ 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -31,22 +37,27 @@ var (
 	claims 		= &core.JwtData{}
 	err 		error
 	load_crl_pem	*[]byte
+	tracer 			trace.Tracer
 )
 
 func init() {
 	log.Debug().Msg("init")
 	zerolog.SetGlobalLevel(logLevel)
 	appServer = util.GetAppInfo()
+	configOTEL := util.GetOtelEnv()
+	appServer.ConfigOTEL = &configOTEL
 }
 
 func main() {
 	log.Debug().Msg("main")
-	log.Debug().Msg("-------------------")
 	log.Debug().Interface("appServer : ", appServer).Msg(".")
 
 	// set config
 	ctx := context.Background()
 	awsConfig, err := config.LoadDefaultConfig(ctx)
+
+	// Instrument all AWS clients.
+	otelaws.AppendMiddlewares(&awsConfig.APIOptions)
 
 	// Get Parameter-Store
 	if err != nil {
@@ -86,9 +97,23 @@ func main() {
 
 	// Create a service
 	authService = service.NewAuthService([]byte(jwtKey), authRepository)
+		
+	//----- OTEL ----//
+	tp := lib.NewTracerProvider(ctx, appServer.ConfigOTEL, appServer.InfoApp)
+	defer func(ctx context.Context) {
+			err := tp.Shutdown(ctx)
+			if err != nil {
+				log.Error().Err(err).Msg("Error shutting down tracer provider")
+			}
+	}(ctx)
 	
+	otel.SetTextMapPropagator(xray.Propagator{})
+	otel.SetTracerProvider(tp)
+	
+	tracer = tp.Tracer("lambda-go-auth-apigw-tracer")
+	lambda.Start(otellambda.InstrumentHandler(lambdaHandlerRequest, xrayconfig.WithRecommendedOptions(tp)... ))
 	// Start lambda handler
-	lambda.Start(lambdaHandlerRequest)
+	//lambda.Start(lambdaHandlerRequest)
 }
 
 func generatePolicy(ctx context.Context, 
@@ -96,9 +121,9 @@ func generatePolicy(ctx context.Context,
 					effect string, 
 					resource string) events.APIGatewayCustomAuthorizerResponse {
 	log.Debug().Msg("generatePolicy")
-
-	_, root := xray.BeginSubsegment(ctx, "Handler.generatePolicy")
-	defer root.Close(nil)
+	
+	span := lib.Span(ctx, "generatePolicy")	
+    defer span.End()
 
 	// Create a policy
 	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
@@ -132,9 +157,9 @@ func generatePolicyError(ctx context.Context,
 						resource string, 
 						message string) events.APIGatewayCustomAuthorizerResponse {
 	log.Debug().Msg("generatePolicyError")
-
-	_, root := xray.BeginSubsegment(ctx, "Handler.generatePolicyError")
-	defer root.Close(nil)
+	
+	span := lib.Span(ctx, "geratePolicyError")	
+    defer span.End()
 
 	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: ""}
 	authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
@@ -165,19 +190,25 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	log.Debug().Msg("-------------------")
 	log.Debug().Interface("request : ", request).Msg("")
 
-	_, root := xray.BeginSubsegment(ctx, "Handler.lambdaHandlerRequest")
-	defer root.Close(nil)
+	ctx, span := tracer.Start(ctx, "lambdaHandlerRequest")
+    defer span.End()
 
 	// Check CRL
 	if appServer.InfoApp.CrlValidation == true {
 		CertX509PemDecoded := request.RequestContext.Identity.ClientCert.ClientCertPem
-		log.Debug().Interface("CertX509PemDecoded : ", CertX509PemDecoded).Msg("")
-
+		log.Debug().Interface("Client CertX509PemDecoded : ", CertX509PemDecoded).Msg("")
+		
+		// The cert must be informed
+		if CertX509PemDecoded == ""{
+			log.Info().Msg("Client Cert no Informed !!!")
+			return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate not Informed !!!!"), nil
+		}
+		
 		certX509, err := util.ParsePemToCertx509(CertX509PemDecoded)
 		if err != nil {
 			log.Debug().Msg("Erro ParsePemToCertx509!!!")
 		}
-		response_crl, err := authService.VerifyCertCRL(*load_crl_pem, certX509)
+		response_crl, err := authService.VerifyCertCRL(ctx, *load_crl_pem, certX509)
 		if err != nil {
 			log.Debug().Msg("Unauthorized Cert Revoked !!!")
 			//return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
@@ -263,8 +294,6 @@ func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuth
 	log.Debug().Msg("-------------------")
 	log.Debug().Interface("request : ", request).Msg("")
 
-	_, root := xray.BeginSubsegment(ctx, "Handler.Lambda")
-	defer root.Close(nil)
 
 	// Check the size of arn
 	if (len(request.MethodArn) < 6){

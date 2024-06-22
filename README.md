@@ -35,7 +35,16 @@ Just test and signed validation the JWT
 
    Manually compile the function
 
+      Old Version 
       GOOD=linux GOARCH=amd64 go build -o ../build/main main.go
+      zip -jrm ../build/main.zip ../build/main
+
+      Convert
+      aws lambda update-function-configuration --function-name lambda-go-autentication --runtime provided.al2
+
+      New Version
+      GOARCH=amd64 GOOS=linux go build -o ../build/bootstrap main.go
+      zip -jrm ../build/main.zip ../build/bootstrap
 
       zip -jrm ../build/main.zip ../build/main
 
@@ -43,6 +52,10 @@ Just test and signed validation the JWT
         --function-name lambda-go-auth-apigw \
         --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
+
+## Install a LambdaLayer (OTEL)
+
+arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-collector-amd64-ver-0-90-1:1
 
 ## Test via console
 
@@ -79,3 +92,4 @@ Just test and signed validation the JWT
       SSM_JWT_KEY	key-secret
       TABLE_NAME	user_login_2
       VERSION	1.0
+      OTEL_EXPORTER_OTLP_ENDPOINT: localhost:4317

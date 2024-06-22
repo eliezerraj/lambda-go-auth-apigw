@@ -6,9 +6,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-
 type AppServer struct {
 	InfoApp 		*InfoApp 		`json:"info_app"`
+	ConfigOTEL		*ConfigOTEL		`json:"otel_config"`
 }
 
 type InfoApp struct {
@@ -24,6 +24,8 @@ type InfoApp struct {
 	CrlBucketNameKey	string `json:"crl_bucket_name_key"`
 	CrlFilePath			string `json:"crl_file_path"`
 	CrlFileKey			string `json:"crl_file_key"`
+	Env					string `json:"env,omitempty"`
+	AccountID			string `json:"account,omitempty"`
 }
 
 type Credential struct {
@@ -41,4 +43,14 @@ type UserProfile struct {
 	SK				string		`json:"SK,omitempty"`
 	TenantID		string		`json:"tenant_id,omitempty"`
 	Updated_at  	time.Time 	`json:"updated_at,omitempty"`
+}
+
+type ConfigOTEL struct {
+	OtelExportEndpoint		string
+	TimeInterval            int64    `mapstructure:"TimeInterval"`
+	TimeAliveIncrementer    int64    `mapstructure:"RandomTimeAliveIncrementer"`
+	TotalHeapSizeUpperBound int64    `mapstructure:"RandomTotalHeapSizeUpperBound"`
+	ThreadsActiveUpperBound int64    `mapstructure:"RandomThreadsActiveUpperBound"`
+	CpuUsageUpperBound      int64    `mapstructure:"RandomCpuUsageUpperBound"`
+	SampleAppPorts          []string `mapstructure:"SampleAppPorts"`
 }
