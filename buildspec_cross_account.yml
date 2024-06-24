@@ -46,12 +46,14 @@ phases:
   build:
     commands:
       - echo Build our go application on `date`
-      - GOOD=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./cmd/main.go
+      #- GOOD=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./cmd/main.go
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main ./cmd/main.go
 
   post_build:
       commands:
       - echo POST_BUILD Zipping go application on `date`
-      - zip -r -q ./main.zip .
+      #- zip -r -q ./main.zip .
+      - zip -r -q ./main.zip ./main
 
 artifacts:
   files:
