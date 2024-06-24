@@ -10,7 +10,7 @@ env:
 phases:
   install:
     runtime-versions:
-      golang: 1.20
+      golang: 1.21.3
     commands:
       - aws sts get-caller-identity
 
