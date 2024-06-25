@@ -6,8 +6,7 @@ Lambda apigw authorizer for check JWT OAuth 2.0
 
 There is a table user-profile where the lambda get some data from the profile and inject into http headers. 
 
-
-![Alt text](image.png)
+![Alt text](/assets/image.png)
 
 This lambda must be used attached as an authorizer into an ApiGateway
 
@@ -62,7 +61,7 @@ arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-collector-amd64-ver-0-90-1:
       no mTLS
       {
             "headers": { "authorization": "eyJhb.....uG-Qy-0" },
-            "methodArn": "rn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
+            "methodArn": "arn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
       }
 
       with mTLS

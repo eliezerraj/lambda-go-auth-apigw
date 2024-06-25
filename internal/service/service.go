@@ -7,7 +7,9 @@ import (
 	"crypto/x509"
 	"github.com/rs/zerolog/log"
 	
-	"github.com/lambda-go-auth-apigw/internal/lib"
+	"github.com/aws/aws-lambda-go/events"
+
+	"github.com/lambda-go-auth-apigw/internal/config/observability"
 	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/erro"
@@ -34,7 +36,7 @@ func NewAuthService(jwtKey []byte,
 func (a AuthService) TokenValidation(ctx context.Context, credential core.Credential) (bool, error){
 	childLogger.Debug().Msg("TokenValidation")
 
-	span := lib.Span(ctx, "service.tokenValidation")	
+	span := observability.Span(ctx, "service.tokenValidation")	
     defer span.End()
 
 	claims := &core.JwtData{}
@@ -62,7 +64,7 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 	log.Debug().Str("method", method).Msg("")
 	log.Debug().Interface("credential", credential).Msg("")
 
-	span := lib.Span(ctx, "service.scopeValidation")	
+	span := observability.Span(ctx, "service.scopeValidation")	
     defer span.End()
 
 	// Check the JWT signature
@@ -135,7 +137,7 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 func (a AuthService) LoadUserProfile(ctx context.Context, user core.UserProfile) (*core.UserProfile, error) {
 	childLogger.Debug().Msg("LoadUserProfile")
 
-	span := lib.Span(ctx, "service.loadUserProfile")	
+	span := observability.Span(ctx, "service.loadUserProfile")	
     defer span.End()
 
 	userProfile, err := a.authRepository.LoadUserProfile(ctx, user)
@@ -151,7 +153,7 @@ func(a AuthService) VerifyCertCRL(	ctx context.Context,
 									cacert *x509.Certificate) (bool, error){
 	childLogger.Debug().Msg("VerifyCertCRL")
 
-	span := lib.Span(ctx, "service.verifyCertCRL")	
+	span := observability.Span(ctx, "service.verifyCertCRL")	
     defer span.End()
 
 	certSerialNumber := cacert.SerialNumber
@@ -171,3 +173,65 @@ func(a AuthService) VerifyCertCRL(	ctx context.Context,
 	fmt.Println(cacert.SerialNumber)
 	return false, nil
 }
+
+func(a AuthService) GeneratePolicy(ctx context.Context, principalID string, effect string, resource string) events.APIGatewayCustomAuthorizerResponse {
+	childLogger.Debug().Msg("GeneratePolicy")
+	
+	span := observability.Span(ctx, "service.generatePolicy")	
+    defer span.End()
+
+	// Create a policy
+	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
+	if effect != "" && resource != "" {
+		authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
+			Version: "2012-10-17",
+			Statement: []events.IAMPolicyStatement{
+				{
+					Action:   []string{"execute-api:Invoke"},
+					Effect:   effect,
+					Resource: []string{resource},
+				},
+			},
+		}
+	}
+
+	userProfile := core.UserProfile{ID: principalID}
+	res_userProfile, _ := a.authRepository.LoadUserProfile(ctx, userProfile)
+	if res_userProfile != nil {
+		authResponse.Context = map[string]interface{}{
+			"tenant-id":  res_userProfile.TenantID,
+		}
+	}
+
+	return authResponse
+}
+
+func(a AuthService) GeneratePolicyError(ctx context.Context,resource string, message string) events.APIGatewayCustomAuthorizerResponse {
+	log.Debug().Msg("GeneratePolicyError")
+	
+	span := observability.Span(ctx, "service.geratePolicyError")	
+    defer span.End()
+
+	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: ""}
+	authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
+		Version: "2012-10-17",
+		Statement: []events.IAMPolicyStatement{
+			{
+				Action:   []string{"execute-api:Invoke"},
+				Effect:   "Deny",
+				Resource: []string{resource},
+			},
+		},
+	}
+
+	authResponse.Context = make(map[string]interface{})
+	authResponse.Context["customErrorMessage"] = message
+
+	log.Debug().Msg("--------------------------------------------------------")
+	log.Debug().Interface("generatePolicyError:", authResponse).Msg("")
+	log.Debug().Msg("--------------------------------------------------------")
+
+	return authResponse
+}
+
+

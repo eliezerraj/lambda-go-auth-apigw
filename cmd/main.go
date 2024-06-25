@@ -3,28 +3,24 @@ package main
 import(
 	"context"
 	"strings"
-	"errors"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/lambda-go-auth-apigw/internal/service"
 	"github.com/lambda-go-auth-apigw/internal/repository"
-	"github.com/lambda-go-auth-apigw/internal/lib"
-
+	"github.com/lambda-go-auth-apigw/internal/config/observability"
 	"github.com/lambda-go-auth-apigw/internal/core"
 	"github.com/lambda-go-auth-apigw/internal/util"
+	"github.com/lambda-go-auth-apigw/internal/config/config_aws"
+	"github.com/lambda-go-auth-apigw/internal/config/parameter_store_aws"
+	"github.com/lambda-go-auth-apigw/internal/config/bucket_s3_aws"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/aws/aws-sdk-go-v2/config"
 
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
  	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -54,28 +50,18 @@ func main() {
 
 	// set config
 	ctx := context.Background()
-	awsConfig, err := config.LoadDefaultConfig(ctx)
-
-	// Instrument all AWS clients.
-	otelaws.AppendMiddlewares(&awsConfig.APIOptions)
-
-	// Get Parameter-Store
+	awsConfig, err := config_aws.GetAWSConfig(ctx)
 	if err != nil {
 		panic("configuration error create new aws session " + err.Error())
 	}
-		
-	ssmsvc := ssm.NewFromConfig(awsConfig)
-	param, err := ssmsvc.GetParameter(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(appServer.InfoApp.SSMJwtKey),
-		WithDecryption: aws.Bool(false),
-	})
-	if err != nil {
-		panic("configuration error get parameter " + err.Error())
-	}
-	jwtKey := *param.Parameter.Value
 
-	log.Debug().Str("======== > ssmJwtKwy", appServer.InfoApp.SSMJwtKey).Msg("")
-	log.Debug().Str("======== > jwtKey", jwtKey).Msg("")
+	// Get Parameter-Store
+	clientSsm := parameter_store_aws.NewClientParameterStore(awsConfig)
+	jwtKey, err := clientSsm.GetParameter(ctx, appServer.InfoApp.SSMJwtKey)
+	if err != nil {
+		panic("Error GetParameter " + err.Error())
+	}
+	log.Debug().Str("======== > jwtKey", *jwtKey).Msg("")
 
 	// Create a repository
 	authRepository, err := repository.NewAuthRepository(appServer.InfoApp.TableName, awsConfig)
@@ -85,8 +71,9 @@ func main() {
 
 	// Load the CRL
 	if appServer.InfoApp.CrlValidation == true {
-		load_crl_pem, err = util.LoadKeyAsFileS3(ctx, 
-												awsConfig, 
+		log.Debug().Msg("Loading CRL cert form S3")
+		clientS3 := bucket_s3_aws.NewClientS3Bucket(awsConfig)
+		load_crl_pem, err = clientS3.GetObject(ctx, 
 												appServer.InfoApp.CrlBucketNameKey,
 												appServer.InfoApp.CrlFilePath,
 												appServer.InfoApp.CrlFileKey)
@@ -96,10 +83,10 @@ func main() {
 	}
 
 	// Create a service
-	authService = service.NewAuthService([]byte(jwtKey), authRepository)
+	authService = service.NewAuthService([]byte(*jwtKey), authRepository)
 		
 	//----- OTEL ----//
-	tp := lib.NewTracerProvider(ctx, appServer.ConfigOTEL, appServer.InfoApp)
+	tp := observability.NewTracerProvider(ctx, appServer.ConfigOTEL, appServer.InfoApp)
 	defer func(ctx context.Context) {
 			err := tp.Shutdown(ctx)
 			if err != nil {
@@ -112,75 +99,6 @@ func main() {
 	
 	tracer = tp.Tracer("lambda-go-auth-apigw-tracer")
 	lambda.Start(otellambda.InstrumentHandler(lambdaHandlerRequest, xrayconfig.WithRecommendedOptions(tp)... ))
-	// Start lambda handler
-	//lambda.Start(lambdaHandlerRequest)
-}
-
-func generatePolicy(ctx context.Context, 
-					principalID string, 
-					effect string, 
-					resource string) events.APIGatewayCustomAuthorizerResponse {
-	log.Debug().Msg("generatePolicy")
-	
-	span := lib.Span(ctx, "generatePolicy")	
-    defer span.End()
-
-	// Create a policy
-	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
-	if effect != "" && resource != "" {
-		authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
-			Version: "2012-10-17",
-			Statement: []events.IAMPolicyStatement{
-				{
-					Action:   []string{"execute-api:Invoke"},
-					Effect:   effect,
-					Resource: []string{resource},
-				},
-			},
-		}
-	}
-
-	// Query the user-profile to inject tenant-id in the header
-	userProfile := core.UserProfile{ID: principalID}
-	res_userProfile, _ := authService.LoadUserProfile(ctx, userProfile)
-	// Add variables in context
-	if res_userProfile != nil {
-		authResponse.Context = map[string]interface{}{
-			"tenant-id":  res_userProfile.TenantID,
-		}
-	}
-
-	return authResponse
-}
-
-func generatePolicyError(ctx context.Context, 
-						resource string, 
-						message string) events.APIGatewayCustomAuthorizerResponse {
-	log.Debug().Msg("generatePolicyError")
-	
-	span := lib.Span(ctx, "geratePolicyError")	
-    defer span.End()
-
-	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: ""}
-	authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
-		Version: "2012-10-17",
-		Statement: []events.IAMPolicyStatement{
-			{
-				Action:   []string{"execute-api:Invoke"},
-				Effect:   "Deny",
-				Resource: []string{resource},
-			},
-		},
-	}
-
-	authResponse.Context = make(map[string]interface{})
-	authResponse.Context["customErrorMessage"] = message
-
-	log.Debug().Msg("--------------------------------------------------------")
-	log.Debug().Interface("generatePolicyError:", authResponse).Msg("")
-	log.Debug().Msg("--------------------------------------------------------")
-
-	return authResponse
 }
 
 // Integration APIGW as Request (USED)
@@ -201,7 +119,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 		// The cert must be informed
 		if CertX509PemDecoded == ""{
 			log.Info().Msg("Client Cert no Informed !!!")
-			return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate not Informed !!!!"), nil
+			return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate not Informed !!!!"), nil
 		}
 		
 		certX509, err := util.ParsePemToCertx509(CertX509PemDecoded)
@@ -216,14 +134,14 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 		log.Debug().Interface(" ====> CrlValidation response : ", response_crl).Msg("")
 		// response_crl is true means the cert is revoked
 		if response_crl == true {
-			return generatePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate revoked"), nil
+			return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized Certificate revoked"), nil
 		}
 	}
 
 	// Check the size of arn
 	if (len(request.MethodArn) < 6){
 		log.Debug().Str("request.MethodArn size error : ", string(len(request.MethodArn))).Msg("")
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized arr mal-formed"), nil
+		return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized arr mal-formed"), nil
 	}
 
 	// Parse the method and path
@@ -257,7 +175,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 
 	if len(bearerToken) < 1 {
 		log.Debug().Msg("Empty Token")
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized token not informed !!!"), nil
+		return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized token not informed !!!"), nil
 	}
 
 	beared_token := core.Credential{ Token: bearerToken }
@@ -273,23 +191,23 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 
 	if err != nil {
 		log.Debug().Msg("Failed ScopeValidation")
-		return generatePolicyError(ctx, request.MethodArn , err.Error()), nil
+		return authService.GeneratePolicyError(ctx, request.MethodArn , err.Error()), nil
 	}
 	if response == false {
 		log.Debug().Msg("Unauthorized ScopeValidation")
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
+		return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized ScopeValidation NOT allowed"), nil
 	}
 
 	if response == true {
-		return generatePolicy(ctx, claims.Username, "Allow", request.MethodArn), nil
+		return authService.GeneratePolicy(ctx, claims.Username, "Allow", request.MethodArn), nil
 	} else {
-		return generatePolicyError(ctx, request.MethodArn ,"Unauthorized"), nil
+		return authService.GeneratePolicyError(ctx, request.MethodArn ,"Unauthorized"), nil
 	}
 }
 
 // Integration APIGW as TOKEN (NO USED)
 // When use lambda authorizer type Token
-func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
+/*func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuthorizerRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
 	log.Debug().Msg("lambdaHandlerToken")
 	log.Debug().Msg("-------------------")
 	log.Debug().Interface("request : ", request).Msg("")
@@ -344,4 +262,4 @@ func lambdaHandlerToken(ctx context.Context, request events.APIGatewayCustomAuth
 	} else {
 		return events.APIGatewayCustomAuthorizerResponse{}, errors.New("Unauthorized !!!!")
 	}
-}
+}*/
