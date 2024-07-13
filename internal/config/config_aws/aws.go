@@ -8,13 +8,13 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 )
 
-func GetAWSConfig(ctx context.Context) (aws.Config, error) {
+func GetAWSConfig(ctx context.Context) (*aws.Config, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return *new(aws.Config), err
+		return nil, err
 	}
 
 	otelaws.AppendMiddlewares(&cfg.APIOptions)
 
-	return cfg, nil
+	return &cfg, nil
 }

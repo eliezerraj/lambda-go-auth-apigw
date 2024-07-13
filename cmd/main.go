@@ -56,7 +56,7 @@ func main() {
 	}
 
 	// Get Parameter-Store
-	clientSsm := parameter_store_aws.NewClientParameterStore(awsConfig)
+	clientSsm := parameter_store_aws.NewClientParameterStore(*awsConfig)
 	jwtKey, err := clientSsm.GetParameter(ctx, appServer.InfoApp.SSMJwtKey)
 	if err != nil {
 		panic("Error GetParameter " + err.Error())
@@ -64,7 +64,7 @@ func main() {
 	log.Debug().Str("======== > jwtKey", *jwtKey).Msg("")
 
 	// Create a repository
-	authRepository, err := repository.NewAuthRepository(appServer.InfoApp.TableName, awsConfig)
+	authRepository, err := repository.NewAuthRepository(appServer.InfoApp.TableName, *awsConfig)
 	if err != nil {
 		panic("configuration error AuthRepository(), " + err.Error())
 	}
@@ -72,7 +72,7 @@ func main() {
 	// Load the CRL
 	if appServer.InfoApp.CrlValidation == true {
 		log.Debug().Msg("Loading CRL cert form S3")
-		clientS3 := bucket_s3_aws.NewClientS3Bucket(awsConfig)
+		clientS3 := bucket_s3_aws.NewClientS3Bucket(*awsConfig)
 		load_crl_pem, err = clientS3.GetObject(ctx, 
 												appServer.InfoApp.CrlBucketNameKey,
 												appServer.InfoApp.CrlFilePath,

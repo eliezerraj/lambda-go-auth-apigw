@@ -233,5 +233,3 @@ func(a AuthService) GeneratePolicyError(ctx context.Context,resource string, mes
 
 	return authResponse
 }
-
-
