@@ -14,7 +14,6 @@ import (
 	"github.com/lambda-go-auth-apigw/internal/repository"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 	"github.com/golang-jwt/jwt/v4"
-
 )
 
 var childLogger = log.With().Str("service", "AuthService").Logger()
