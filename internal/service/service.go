@@ -32,7 +32,7 @@ func NewAuthService(jwtKey []byte,
 	}
 }
 
-func (a AuthService) TokenValidation(ctx context.Context, credential core.Credential) (bool, error){
+func (a AuthService) TokenValidation(ctx context.Context, credential core.Credential) (*core.JwtData, bool, error){
 	childLogger.Debug().Msg("TokenValidation")
 
 	span := observability.Span(ctx, "service.tokenValidation")	
@@ -45,20 +45,21 @@ func (a AuthService) TokenValidation(ctx context.Context, credential core.Creden
 
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
-			return false, erro.ErrStatusUnauthorized
+			return nil, false, erro.ErrStatusUnauthorized
 		}
-		return false, erro.ErrTokenExpired
+		return nil, false, erro.ErrTokenExpired
 	}
 
 	if !tkn.Valid {
-		return false, erro.ErrStatusUnauthorized
+		return nil, false, erro.ErrStatusUnauthorized
 	}
 
-	return true ,nil
+	return claims, true ,nil
 }
 
 func (a AuthService) ScopeValidation(ctx context.Context, credential core.Credential, path string, method string) (*core.JwtData, bool, error){
 	childLogger.Debug().Msg("ScopeValidation")
+
 	log.Debug().Str("path", path ).Msg("")
 	log.Debug().Str("method", method).Msg("")
 	log.Debug().Interface("credential", credential).Msg("")
@@ -71,19 +72,18 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 	tkn, err := jwt.ParseWithClaims(credential.Token, claims, func(token *jwt.Token) (interface{}, error) {
 		return a.jwtKey, nil
 	})
+	
+	log.Debug().Interface("+++> claims : ", claims).Msg("")
 
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
-			return nil, false, erro.ErrStatusUnauthorized
+			return claims, false, erro.ErrStatusUnauthorized
 		}
-		return nil,false, erro.ErrTokenExpired
+		return claims,false, erro.ErrTokenExpired
 	}
 	if !tkn.Valid {
-		return nil,false, erro.ErrStatusUnauthorized
+		return claims,false, erro.ErrStatusUnauthorized
 	}
-
-	log.Debug().Interface("claims.Scope : ", claims.Scope).Msg("")
-	log.Debug().Interface("claims.Username : ", claims.Username).Msg("")
 
 	// Valid the scope in a naive way
 	var pathScope, methodScope string
@@ -129,8 +129,10 @@ func (a AuthService) ScopeValidation(ctx context.Context, credential core.Creden
 			}
 		}
 	}
+
 	log.Debug().Msg("SCOPE informed not found !!!!")
-	return nil, false ,nil
+	
+	return claims, false ,nil
 }
 
 func (a AuthService) LoadUserProfile(ctx context.Context, user core.UserProfile) (*core.UserProfile, error) {
@@ -173,62 +175,34 @@ func(a AuthService) VerifyCertCRL(	ctx context.Context,
 	return false, nil
 }
 
-func(a AuthService) GeneratePolicy(ctx context.Context, principalID string, effect string, resource string) events.APIGatewayCustomAuthorizerResponse {
-	childLogger.Debug().Msg("GeneratePolicy")
+func(a AuthService) GeneratePolicyFromClaims(ctx context.Context, policyData core.PolicyData) events.APIGatewayCustomAuthorizerResponse {
+	childLogger.Debug().Msg("GeneratePolicyFromClaims")
 	
-	span := observability.Span(ctx, "service.generatePolicy")	
+	span := observability.Span(ctx, "service.GeneratePolicyFromClaims")	
     defer span.End()
 
 	// Create a policy
-	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: principalID}
-	if effect != "" && resource != "" {
-		authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
-			Version: "2012-10-17",
-			Statement: []events.IAMPolicyStatement{
-				{
-					Action:   []string{"execute-api:Invoke"},
-					Effect:   effect,
-					Resource: []string{resource},
-				},
-			},
-		}
-	}
-
-	userProfile := core.UserProfile{ID: principalID}
-	res_userProfile, _ := a.authRepository.LoadUserProfile(ctx, userProfile)
-	if res_userProfile != nil {
-		authResponse.Context = map[string]interface{}{
-			"tenant-id":  res_userProfile.TenantID,
-		}
-	}
-
-	return authResponse
-}
-
-func(a AuthService) GeneratePolicyError(ctx context.Context,resource string, message string) events.APIGatewayCustomAuthorizerResponse {
-	log.Debug().Msg("GeneratePolicyError")
-	
-	span := observability.Span(ctx, "service.geratePolicyError")	
-    defer span.End()
-
-	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: ""}
+	authResponse := events.APIGatewayCustomAuthorizerResponse{PrincipalID: policyData.JwtData.Username}
 	authResponse.PolicyDocument = events.APIGatewayCustomAuthorizerPolicy{
 		Version: "2012-10-17",
 		Statement: []events.IAMPolicyStatement{
 			{
 				Action:   []string{"execute-api:Invoke"},
-				Effect:   "Deny",
-				Resource: []string{resource},
+				Effect:   policyData.Effect,
+				Resource: []string{policyData.MethodArn},
 			},
 		},
 	}
-
+	
 	authResponse.Context = make(map[string]interface{})
-	authResponse.Context["customErrorMessage"] = message
+	authResponse.Context["authMessage"] = policyData.Message
+	authResponse.Context["jwtId"] = policyData.JwtData.JwtId
 
-	log.Debug().Msg("--------------------------------------------------------")
-	log.Debug().Interface("generatePolicyError:", authResponse).Msg("")
-	log.Debug().Msg("--------------------------------------------------------")
+	userProfile := core.UserProfile{ID: policyData.JwtData.Username}
+	res_userProfile, _ := a.authRepository.LoadUserProfile(ctx, userProfile)
+	if res_userProfile != nil {
+		authResponse.Context["tenantId"] = res_userProfile.TenantID
+	}
 
 	return authResponse
 }

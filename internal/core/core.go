@@ -33,8 +33,12 @@ type Credential struct {
 }
 
 type JwtData struct {
-	Username	string 		`json:"username"`
-	Scope		[]string 	`json:"scope"`
+	TokenUse	string 	`json:"token_use"`
+	ISS			string 	`json:"iss"`
+	Version		string 	`json:"version"`
+	JwtId		string 	`json:"jwt_id"`
+	Username	string 	`json:"username"`
+	Scope	  	[]string `json:"scope"`
 	jwt.RegisteredClaims
 }
 
@@ -53,4 +57,11 @@ type ConfigOTEL struct {
 	ThreadsActiveUpperBound int64    `mapstructure:"RandomThreadsActiveUpperBound"`
 	CpuUsageUpperBound      int64    `mapstructure:"RandomCpuUsageUpperBound"`
 	SampleAppPorts          []string `mapstructure:"SampleAppPorts"`
+}
+
+type PolicyData struct {
+	Effect			string
+	MethodArn		string
+	JwtData			*JwtData		
+	Message			string		
 }

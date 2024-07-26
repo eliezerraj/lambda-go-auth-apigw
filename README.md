@@ -45,9 +45,8 @@ Just test and signed validation the JWT
       GOARCH=amd64 GOOS=linux go build -o ../build/bootstrap main.go
       zip -jrm ../build/main.zip ../build/bootstrap
 
-      zip -jrm ../build/main.zip ../build/main
-
         aws lambda update-function-code \
+        --region us-east-2 \
         --function-name lambda-go-auth-apigw \
         --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
