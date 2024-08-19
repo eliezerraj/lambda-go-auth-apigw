@@ -79,15 +79,15 @@ arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-collector-amd64-ver-0-90-1:
 
 ## Lambda Env Variables
 
-      APP_NAME	lambda-go-auth-apigw
+      APP_NAME	            lambda-go-auth-apigw
       CRL_BUCKET_NAME_KEY	eliezerraj-908671954593-mtls-truststore
-      CRL_FILE_KEY	crl_ca.pem
-      CRL_FILE_PATH	/
-      CRL_VALIDATION	false
-      JWT_KEY	my_secret_key
-      REGION	us-east-2
-      SCOPE_VALIDATION	true
-      SSM_JWT_KEY	key-secret
-      TABLE_NAME	user_login_2
-      VERSION	1.0
-      OTEL_EXPORTER_OTLP_ENDPOINT: localhost:4317
+      CRL_FILE_KEY	      crl_ca.pem
+      CRL_FILE_PATH	      /
+      CRL_VALIDATION	      false
+      JWT_KEY	            my_secret_key
+      REGION	            us-east-2
+      OTEL_EXPORTER_OTLP_ENDPOINT localhost:4317
+      SCOPE_VALIDATION	      true
+      SSM_JWT_KEY	            key-secret
+      TABLE_NAME	            user_login_2
+      VERSION	            1.0

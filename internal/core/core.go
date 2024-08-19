@@ -43,9 +43,10 @@ type JwtData struct {
 }
 
 type UserProfile struct {
-	ID				string		`json:"ID,omitempty"`
-	SK				string		`json:"SK,omitempty"`
-	TenantID		string		`json:"tenant_id,omitempty"`
+	ID				string	`json:"ID,omitempty"`
+	SK				string	`json:"SK,omitempty"`
+	UsagePlan		string 	`json:"usage_plan,omitempty"`
+	TenantID		string	`json:"tenant_id,omitempty"`
 	Updated_at  	time.Time 	`json:"updated_at,omitempty"`
 }
 
@@ -62,6 +63,7 @@ type ConfigOTEL struct {
 type PolicyData struct {
 	Effect			string
 	MethodArn		string
-	JwtData			*JwtData		
+	JwtData			*JwtData
+	UsageIdentifierKey	*string		
 	Message			string		
 }
