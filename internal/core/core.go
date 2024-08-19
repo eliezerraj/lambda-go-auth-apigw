@@ -46,6 +46,7 @@ type UserProfile struct {
 	ID				string	`json:"ID,omitempty"`
 	SK				string	`json:"SK,omitempty"`
 	UsagePlan		string 	`json:"usage_plan,omitempty"`
+	ApiKey			string 	`json:"apikey,omitempty"`
 	TenantID		string	`json:"tenant_id,omitempty"`
 	Updated_at  	time.Time 	`json:"updated_at,omitempty"`
 }
