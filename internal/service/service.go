@@ -205,5 +205,7 @@ func(a AuthService) GeneratePolicyFromClaims(ctx context.Context, policyData cor
 		authResponse.Context["usageIdentifierKey"] = res_userProfile.ApiKey
 	}
 
+	log.Debug().Interface("authResponse : ", authResponse).Msg("")
+
 	return authResponse
 }
