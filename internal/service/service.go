@@ -202,8 +202,8 @@ func(a AuthService) GeneratePolicyFromClaims(ctx context.Context, policyData cor
 	res_userProfile, _ := a.authRepository.LoadUserProfile(ctx, userProfile)
 	if res_userProfile != nil {
 		authResponse.Context["tenantId"] = res_userProfile.TenantID
-		authResponse.Context["usageIdentifierKey"] = res_userProfile.ApiKey
 	}
+	authResponse.UsageIdentifierKey = res_userProfile.ApiKey
 
 	log.Debug().Interface("authResponse : ", authResponse).Msg("")
 
