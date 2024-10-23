@@ -26,6 +26,7 @@ type AuthService struct {
 func NewAuthService(jwtKey []byte,
 					authRepository *repository.AuthRepository ) *AuthService{
 	childLogger.Debug().Msg("NewAuthService")
+	
 	return &AuthService{
 		jwtKey: jwtKey,
 		authRepository: authRepository,
@@ -54,7 +55,7 @@ func (a AuthService) TokenValidation(ctx context.Context, credential core.Creden
 		return nil, false, erro.ErrStatusUnauthorized
 	}
 
-	return claims, true ,nil
+	return claims, true, nil
 }
 
 func (a AuthService) ScopeValidation(ctx context.Context, credential core.Credential, path string, method string) (*core.JwtData, bool, error){

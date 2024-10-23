@@ -62,13 +62,13 @@ func main() {
 	log.Debug().Str("======== > jwtKey", *jwtKey).Msg("")
 
 	// Create a repository
-	authRepository, err := repository.NewAuthRepository(appServer.InfoApp.TableName, *awsConfig)
+	authRepository, err := repository.NewAuthRepository(ctx, appServer.InfoApp.TableName)
 	if err != nil {
 		panic("configuration error AuthRepository(), " + err.Error())
 	}
 
 	// Load the CRL
-	if appServer.InfoApp.CrlValidation == true {
+	if appServer.InfoApp.CrlValidation {
 		log.Debug().Msg("Loading CRL cert form S3")
 		clientS3 := bucket_s3_aws.NewClientS3Bucket(*awsConfig)
 		load_crl_pem, err = clientS3.GetObject(ctx, 
@@ -119,7 +119,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	policyData.Message = "Unauthorized"
 	
 	//--------------------------- Check CRL
-	if appServer.InfoApp.CrlValidation == true {
+	if appServer.InfoApp.CrlValidation {
 		CertX509PemDecoded := request.RequestContext.Identity.ClientCert.ClientCertPem
 		log.Debug().Interface("Client CertX509PemDecoded : ", CertX509PemDecoded).Msg("")
 		
@@ -142,14 +142,14 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 		}
 		log.Debug().Interface(" ====> CrlValidation response : ", response_crl).Msg("")
 		// response_crl is true means the cert is revoked
-		if response_crl == true {
+		if response_crl {
 			policyData.Message = "Unauthorized Certificate revoked !!!"
 			return authService.GeneratePolicyFromClaims(ctx, policyData), nil
 		}
 	}
 	//-------------------------------- Check the size of arn
 	if (len(request.MethodArn) < 6 || request.MethodArn == ""){
-		log.Debug().Str("request.MethodArn size error : ", string(len(request.MethodArn))).Msg("")
+		log.Debug().Str("request.MethodArn size error : ", string(rune(len(request.MethodArn)))).Msg("")
 		policyData.Message = "Unauthorized ARN mal-formed !!!"
 		return authService.GeneratePolicyFromClaims(ctx, policyData), nil
 	}
@@ -191,7 +191,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 	beared_token := core.Credential{ Token: bearerToken }
 
 	// Check which kind of validation JWT
-	if appServer.InfoApp.ScopeValidation == true {
+	if appServer.InfoApp.ScopeValidation {
 		// Check the JWT signed and scope
 		claims, response, err = authService.ScopeValidation(ctx, beared_token, path, method)
 	} else {
@@ -216,7 +216,7 @@ func lambdaHandlerRequest(ctx context.Context, request events.APIGatewayCustomAu
 		return authService.GeneratePolicyFromClaims(ctx, policyData), nil
 	}
 
-	if response == true {
+	if response {
 		policyData.Effect = "Allow"
 		policyData.Message = "Authorized"
 	} else {

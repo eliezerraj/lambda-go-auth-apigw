@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Lambda Public template
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - hml
+      - prd
+  Versao:
+    Type: String
+    Default: 0
+  Name:
+    Type: String
+    Default: /key-secret
+  ParameterValue:
+    Type: String
+    Default: my-secret-key
+  PciClassificationName:
+    Type: String
+    Default: non-pci
+    AllowedValues:
+      - pci
+      - pci-connected
+      - non-pci
+
+Resources:
+  BasicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Ref Name
+      Type: String
+      Value: !Ref ParameterValue
+      Description: SSM Parameter for Secret Key
+      Tags:
+        env: !Ref Env
+        stack: !Sub ${AWS::StackName}
+        resource: parameter_store
+        component: !Ref Name
+        pci_classification: !Ref PciClassificationName
