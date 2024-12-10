@@ -56,7 +56,7 @@ Parameters:
   ManagedPolicyParameterThree:
     Description: Inform policy ARN (opcional)
     Type: String 
-    Default: ""
+    Default: "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
   CrlBucketNameKey:
     Description: Crl Bucket Name
     Type: String 
@@ -122,14 +122,16 @@ Resources:
           CRL_FILE_KEY: crl_ca.pem
           CRL_FILE_PATH: /
           CRL_VALIDATION: false
-          ENV: !Ref Env
+          IS_TOKEN_RSA: false
           OTEL_EXPORTER_OTLP_ENDPOINT: 'localhost:4317'
           REGION: 'us-east-2'
-          JWT_KEY: 'my-secret-key'
-          SSM_JWT_KEY: 'key-secret'
+          RSA_BUCKET_NAME_KEY: 'eliezerraj-908671954593-mtls-truststore'
+          RSA_FILE_PATH: /
+          RSA_PRIV_FILE_KEY: private_key.pem
+          RSA_PUB_FILE_KEY: public_key.pe
+          SECRET_JWT_KEY: 'key-jwt-auth'
           SCOPE_VALIDATION: 'true'
-          TABLE_NAME: 'user_login_2'
-          VERSION: '1.0'
+          VERSION: '2.0'
       Role: 
         Fn::GetAtt: 
           - "LambdaExecutionRole"
