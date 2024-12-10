@@ -1,45 +1,39 @@
-# lambda-go-auth-apigw
+# lambda-go-authorizer-cert
 
-POC Lambda for technical purposes
+lambda-go-authorizer-cert
 
-Lambda apigw authorizer for check JWT OAuth 2.0
+## Lambda Env Variables
 
-There is a table user-profile where the lambda get some data from the profile and inject into http headers. 
+    APP_NAME: lambda-go-autentication-NEW
+    OTEL_EXPORTER_OTLP_ENDPOINT: localhost:4317
+    REGION:us-east-2
+    RSA_BUCKET_NAME_KEY:eliezerraj-908671954593-mtls-truststore
+    RSA_FILE_PATH:/
+    RSA_PRIV_FILE_KEY:private_key.pem
+    CRL_BUCKET_NAME_KEY:eliezerraj-908671954593-mtls-truststore
+    CRL_FILE_KEY:crl_ca.pem
+    CRL_FILE_PATH:/
+    RSA_PUB_FILE_KEY:public_key.pem
+    SECRET_JWT_KEY:key-jwt-auth
+    SCOPE_VALIDATION:true
+      
+## Test Locally
 
-![Alt text](/assets/image.png)
+1 Download
 
-This lambda must be used attached as an authorizer into an ApiGateway
+    mkdir -p .aws-lambda-rie && curl -Lo .aws-lambda-rie/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie && chmod +x .aws-lambda-rie/aws-lambda-rie
 
-There are 2 types of validation
+2 Run
 
-## Types of validation
+    /local-test$ ./start.sh
 
-### ScopeValidation(token, method, path)
+3 Invoke
 
-Test, signed validation and all scopes
-
-The scopes are :
-
-      "header.read" : Method header with GET
-      "version.read":  Method version with POST
-      "info.read": Method info with GET
-      "admin": Allowed all access
-      "header" Method header with ANY allowed
-
-### TokenValidation(token)
-
-Just test and signed validation the JWT
+    curl -X POST http://localhost:9000/2015-03-31/functions/function/invocations -d '{"headers":{"authorization":"teste"},"methodArn":"arn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"}'
 
 ## Compile lambda
 
    Manually compile the function
-
-      Old Version 
-      GOOD=linux GOARCH=amd64 go build -o ../build/main main.go
-      zip -jrm ../build/main.zip ../build/main
-
-      Convert
-      aws lambda update-function-configuration --function-name lambda-go-autentication --runtime provided.al2
 
       New Version
       GOARCH=amd64 GOOS=linux go build -o ../build/bootstrap main.go
@@ -47,47 +41,15 @@ Just test and signed validation the JWT
 
         aws lambda update-function-code \
         --region us-east-2 \
-        --function-name lambda-go-auth-apigw \
-        --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
+        --function-name lambda-go-authorizer-cert \
+        --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-authorizer-cert/build/main.zip \
         --publish
 
-## Install a LambdaLayer (OTEL)
++ Test APIGW
 
-arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-collector-amd64-ver-0-90-1:1
-
-## Test via console
-
-      no mTLS
-      {
-            "headers": { "authorization": "eyJhb.....uG-Qy-0" },
-            "methodArn": "arn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
-      }
-
-      with mTLS
-      {
-            "headers": { "authorization": "eyJhbGc......lkuG-Qy-0" },
-                  "methodArn": "rn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info",
-                  "requestContext": {
-                        "identity": {
-                              "clientCert": {
-                              "clientCertPem": "-----BEGIN CERTIFICATE-----\nMIIF......aw==\n-----END CERTIFICATE-----\n"
-                              }
-                        }
-            }
-      }
-
-
-## Lambda Env Variables
-
-      APP_NAME	            lambda-go-auth-apigw
-      CRL_BUCKET_NAME_KEY	eliezerraj-908671954593-mtls-truststore
-      CRL_FILE_KEY	      crl_ca.pem
-      CRL_FILE_PATH	      /
-      CRL_VALIDATION	      false
-      JWT_KEY	            my_secret_key
-      REGION	            us-east-2
-      OTEL_EXPORTER_OTLP_ENDPOINT localhost:4317
-      SCOPE_VALIDATION	      true
-      SSM_JWT_KEY	            key-secret
-      TABLE_NAME	            user_login_2
-      VERSION	            1.0
+        {
+        "headers": {
+            "authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJpc3MiOiJsYW1iZGEtZ28tYXV0ZW50aWNhdGlvbiIsInZlcnNpb24iOiIyIiwiand0X2lkIjoiN2RmZGI4MDctZmU2ZC00NDE2LWE3YTgtZDA3NmRiM2ZlYTc1IiwidXNlcm5hbWUiOiJhZG1pbiIsInNjb3BlIjpbImFkbWluIl0sImV4cCI6MTczMzU0MDE2OX0.BFpRsLG26M_q_edK0RhtoMGibViupmEZJuQv1Nnqa2k"
+        },
+        "methodArn": "arn:aws:execute-api:us-east-2:908671954593:k0ng1bdik7/qa/GET/account/info"
+        }

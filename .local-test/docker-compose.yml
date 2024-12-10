@@ -1,0 +1,25 @@
+version: "3"
+services:
+  test-local:
+    image: lambda-go-authorizer-cert:latest
+    build:
+      context: ../
+      dockerfile: ./Dockerfile
+    ports:
+      - "9000:8080"
+    volumes:
+      - ../.aws-lambda-rie:/aws-lambda
+    command: "/app/main" # Using "/app/main" as the command to execute the lambda test locally.
+    entrypoint: /aws-lambda/aws-lambda-rie # Utilizing the RIE as the entrypoint for local lambda testing.
+    environment:
+      - AWS_ACCESS_KEY_ID=ASIA5HEIRV2QRTGNT7M5
+      - AWS_SECRET_ACCESS_KEY=fIVEZ7KAMf4heNxOL1WZukNr/y0hqTJWwvjpvp/F
+      - AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEGsaCXNhLWVhc3QtMSJIMEYCIQCtG5vezbyw3TNoLspArwpWBydv4rwAi8rzw5hyQ3QFJwIhAM2729TkBEnL/ZPHU9NpEHiqagdUoYUEr/k6ybXd17Y3KpoDCCQQAhoMOTA4NjcxOTU0NTkzIgw5gM8bHox2ug9KHt0q9wKA7nV5HE8B3AO8CaEbxoDtIOEP3Jd/bEo/wp9pK+X6ZXOumM3HiqcAC1ry/yuI9OCLapea16ip13QpH6jpYKDQw4EvFwDuBDf3MZAIowyOSHhn7vaEXZiJCT6jI4qDmv/6D6uNr6luWvlAr216xnuSgk1peUjm8UT9uCcfHnxQGGJAjMtYyHA3kHJ/dCVlClcJNGzvUdnXmfnpzsd/kyL3P2fKNoUSRqwSytWMTYr31zJKzmhGu+HWH4KDSpxSEhqAT9QCznvEQjezgcKYUW466oJ6fHD2Y2QvQWfMAfLfrnlOnaHgeaGGZJjHxqyLFmNSF42ticz5kCV7SpRtllI4NVARmIjEcgtbmlG7LS++ShBxYnAyknqh6CAJPmlzd5pOpglQmHnuTkRHxKmz1zfIqjoFRo4hEGDNTJ8M33De/g/tCf4aTop35HZXaYaQRZLt76MN9Q1c8qjNDw2QrUFBxtNAn2RDS2NtD2BdUGiHCuVhTvSceS0ww8jJugY6pQFjTXgL5gW+dT+iiQ0PfMZqqcx8xnjVDFRJmRWjjGsBnreNnr9pGUp174Kfd/ry6y8qosFZrdvYFJC5Is0OskvRG8CblmEeuU+PM/dy4Nl+3IWyOVl9BdQKWF1q45TML09zenuVhex1lxZ0ws8QuIJxXleB/len0bE19cOGfI9UDKqj97a9IA7MwfndbjgJUXrfzNnIJOk/xfZVrL2mkrOc3hb6Y40=
+      - APP_NAME=lambda-go-authorizer-cert
+      - AWS_REGION=us-east-2
+      - CRL_BUCKET_NAME_KEY=eliezerraj-908671954593-mtls-truststore
+      - CRL_FILE_PATH=/
+      - CRL_FILE_KEY=crl_ca.pem
+      - TABLE_NAME=user_login_2
+      - OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+

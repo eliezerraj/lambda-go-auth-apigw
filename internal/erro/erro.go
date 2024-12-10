@@ -2,15 +2,15 @@ package erro
 
 import (
 	"errors"
-
 )
 
 var (
-	ErrStatusUnauthorized = errors.New("Unauthorized")
-	ErrTokenExpired = errors.New("Token expired")
-	ErrOpenDatabase 		= errors.New("Open Database error")
-	ErrQuery 				= errors.New("Query error")
-	ErrPreparedQuery 		= errors.New("Prepare dynamo query erro")
-	ErrUnmarshal			= errors.New("Erro Unmarshall")
-	ErrNotFound 			= errors.New("Data not found")
+	ErrCertRevoked = errors.New("unauthorized cert revoked")
+	ErrParseCert = errors.New("unable to parse x509 cert")
+	ErrDecodeCert = errors.New("failed to decode pem-encoded cert")
+	ErrDecodeKey = errors.New("error decode rsa key")
+	ErrTokenExpired	= errors.New("token expired")
+	ErrStatusUnauthorized = errors.New("invalid Token")
+	ErrArnMalFormad = errors.New("unauthorized arn scoped malformed")
+	ErrBearTokenFormad = errors.New("unauthorized token not informed")
 )
