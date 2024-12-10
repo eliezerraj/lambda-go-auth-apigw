@@ -16,7 +16,9 @@ lambda-go-authorizer-cert
     RSA_PUB_FILE_KEY:public_key.pem
     SECRET_JWT_KEY:key-jwt-auth
     SCOPE_VALIDATION:true
-      
+    CRL_VALIDATION:true
+    TABLE_NAME: user_login_2      
+    
 ## Test Locally
 
 1 Download
@@ -41,8 +43,8 @@ lambda-go-authorizer-cert
 
         aws lambda update-function-code \
         --region us-east-2 \
-        --function-name lambda-go-authorizer-cert \
-        --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-authorizer-cert/build/main.zip \
+        --function-name lambda-go-auth-apigw \
+        --zip-file fileb:///mnt/c/Eliezer/workspace/github.com/lambda-go-auth-apigw/build/main.zip \
         --publish
 
 + Test APIGW

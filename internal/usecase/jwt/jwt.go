@@ -1,28 +1,31 @@
 package jwt
 
 import (
-	"fmt"
 	"context"
-	"crypto/x509"
 	"crypto/rsa"
-    "encoding/pem"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/lambda-go-auth-apigw/pkg/observability"
 	"github.com/lambda-go-auth-apigw/internal/erro"
 	"github.com/lambda-go-auth-apigw/internal/model"
+	"github.com/lambda-go-auth-apigw/internal/usecase/jwt/repository"
+	"github.com/lambda-go-auth-apigw/pkg/observability"
 )
 
 var childLogger = log.With().Str("useCase", "jwt").Logger()
 
 type UseCaseJwt struct{
-	rsaKey 					*model.RSA_Key
+	rsaKey 		*model.RSA_Key
+	repository	*repository.RepoJwt
 }
 
 func NewUseCaseJwt(	ctx context.Context,
+					repository	*repository.RepoJwt,
 					rsaKey *model.RSA_Key) (*UseCaseJwt, error){
 
 	childLogger.Debug().Msg("NewUseCaseJwt")
@@ -41,11 +44,12 @@ func NewUseCaseJwt(	ctx context.Context,
 
 	return &UseCaseJwt{
 		rsaKey:	rsaKey,
+		repository: repository,
 	}, nil
 }
 
 func ParsePemToRSAPriv(private_key *string) (*rsa.PrivateKey, error){
-	childLogger.Debug().Msg("ParsePemToRSA")
+	childLogger.Debug().Msg("ParsePemToRSAPriv")
 
 	block, _ := pem.Decode([]byte(*private_key))
 	if block == nil || block.Type != "PRIVATE KEY" {
@@ -65,7 +69,7 @@ func ParsePemToRSAPriv(private_key *string) (*rsa.PrivateKey, error){
 }
 
 func ParsePemToRSAPub(public_key *string) (*rsa.PublicKey, error){
-	childLogger.Debug().Msg("ParsePemToRSA")
+	childLogger.Debug().Msg("ParsePemToRSAPub")
 
 	block, _ := pem.Decode([]byte(*public_key))
 	if block == nil || block.Type != "PUBLIC KEY" {
@@ -84,17 +88,17 @@ func ParsePemToRSAPub(public_key *string) (*rsa.PublicKey, error){
 	return key_rsa, nil
 }
 
-func (u *UseCaseJwt) TokenValidationRSA(ctx context.Context, bearerToken string) (bool, error){
+func (u *UseCaseJwt) TokenValidationRSA(ctx context.Context, bearerToken *string) (bool, *model.JwtData, error){
 	childLogger.Debug().Msg("TokenValidationRSA")
 	childLogger.Debug().Interface("=> bearerToken : ", bearerToken).Msg("")
 	childLogger.Debug().Msg("--------------------------------------")
 
-	span := observability.Span(ctx, "usecase.TokenValidationRSA")
+	span := observability.Span(ctx, "useCase.TokenValidationRSA")
 	defer span.End()
 
 	// Check with token is signed 
 	claims := &model.JwtData{}
-	tkn, err := jwt.ParseWithClaims(bearerToken, claims, func(token *jwt.Token) (interface{}, error) {
+	tkn, err := jwt.ParseWithClaims(*bearerToken, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("error unexpected signing method: %v", token.Header["alg"])
 		}
@@ -104,43 +108,43 @@ func (u *UseCaseJwt) TokenValidationRSA(ctx context.Context, bearerToken string)
 	if err != nil {
 		fmt.Println(err)
 		if err == jwt.ErrSignatureInvalid {
-			return false, erro.ErrStatusUnauthorized
+			return false, nil, erro.ErrStatusUnauthorized
 		}
-		return false, erro.ErrTokenExpired
+		return false, nil, erro.ErrTokenExpired
 	}
 
 	if !tkn.Valid {
-		return false, erro.ErrStatusUnauthorized
+		return false, nil ,erro.ErrStatusUnauthorized
 	}
 
-	return true ,nil
+	return true, claims, nil
 }
 
-func (u *UseCaseJwt) TokenValidation(ctx context.Context, bearerToken string) (bool, error){
+func (u *UseCaseJwt) TokenValidation(ctx context.Context, bearerToken *string) (bool, *model.JwtData, error){
 	childLogger.Debug().Msg("TokenValidation")
 	childLogger.Debug().Interface("=> bearerToken : ", bearerToken).Msg("")
 	childLogger.Debug().Msg("--------------------------------------")
 
-	span := observability.Span(ctx, "usecase.TokenValidation")
+	span := observability.Span(ctx, "useCase.TokenValidation")
 	defer span.End()
 
 	// Check with token is signed 
 	claims := &model.JwtData{}
-	tkn, err := jwt.ParseWithClaims(bearerToken, claims, func(token *jwt.Token) (interface{}, error) {
+	tkn, err := jwt.ParseWithClaims(*bearerToken, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(u.rsaKey.JwtKey), nil
 	})
 
 	if err != nil {
 		fmt.Println(err)
 		if err == jwt.ErrSignatureInvalid {
-			return false, erro.ErrStatusUnauthorized
+			return false, nil, erro.ErrStatusUnauthorized
 		}
-		return false, erro.ErrTokenExpired
+		return false, nil, erro.ErrTokenExpired
 	}
 
 	if !tkn.Valid {
-		return false, erro.ErrStatusUnauthorized
+		return false, nil, erro.ErrStatusUnauthorized
 	}
 
-	return true ,nil
+	return true, claims, nil
 }

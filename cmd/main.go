@@ -9,8 +9,11 @@ import (
 	"github.com/lambda-go-auth-apigw/internal/usecase/certs"
 	"github.com/lambda-go-auth-apigw/internal/usecase/policy"
 	"github.com/lambda-go-auth-apigw/internal/usecase/jwt"
+	"github.com/lambda-go-auth-apigw/internal/usecase/jwt/repository"
 	"github.com/lambda-go-auth-apigw/internal/model"
 	"github.com/lambda-go-auth-apigw/configs"
+	
+	database "github.com/lambda-go-auth-apigw/pkg/database/dynamo"
 
 	"github.com/lambda-go-auth-apigw/pkg/util"
 	"github.com/lambda-go-auth-apigw/pkg/aws_bucket_s3"
@@ -89,13 +92,21 @@ func main(){
 		log.Error().Err(err).Msg("erro NewClientSecretManager")
 	}
 
+	// Create client database repository
+	database, err := database.NewDatabase(ctx, configAWS)
+	if err != nil {
+		panic("Erro repository.NewAuthRepository, " + err.Error())
+	}
+
+	repoJwt:= repository.NewRepoJwt(database, &appServer.InfoApp.TableName)
+
 	rsaKey.JwtKey = *jwtKey
 	rsaKey.Key_rsa_priv_pem = string(*key_rsa_priv_pem)
 	rsaKey.Key_rsa_pub_pem = string(*key_rsa_pub_pem)
 
 	usecaseCerts 	:= certs.NewUseCaseCerts(crl_pem)
 	usecasePolicy 	:= policy.NewUseCaseCPolicy()
-	useCaseJwt, err := jwt.NewUseCaseJwt(ctx, &rsaKey)
+	useCaseJwt, err := jwt.NewUseCaseJwt(ctx, repoJwt, &rsaKey)
 	if err != nil {
 		log.Error().Err(err).Msg("erro NewUseCaseJwt")
 		panic(err)
@@ -113,7 +124,12 @@ func main(){
 	otel.SetTracerProvider(tp)
 	tracer = tp.Tracer("lambda-go-auth-apigw")
 
-	handler := apigw.InitializeLambdaHandler(*usecaseCerts, *usecasePolicy, *useCaseJwt, appServer.InfoApp.IsTokenRSA)
+	handler := apigw.InitializeLambdaHandler(	*usecaseCerts, 
+												*usecasePolicy, 
+												*useCaseJwt, 
+												appServer.InfoApp.IsTokenRSA,
+												appServer.InfoApp.CrlValidation,
+												appServer.InfoApp.ScopeValidation)
 	lambda.Start(otellambda.InstrumentHandler(handler.LambdaHandlerRequest, xrayconfig.WithRecommendedOptions(tp)... ))
 	//lambda.Start(handler.LambdaHandlerRequest)
 }

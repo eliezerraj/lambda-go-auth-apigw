@@ -1,6 +1,7 @@
 package model
 
 import(
+	"time"
 	"crypto/rsa"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -66,4 +67,13 @@ type RSA_Key struct{
 	Key_rsa_pub_pem 	string	
 	Key_rsa_priv 		*rsa.PrivateKey
 	Key_rsa_pub 		*rsa.PublicKey	
+}
+
+type UserProfile struct {
+	ID				string	`json:"ID,omitempty"`
+	SK				string	`json:"SK,omitempty"`
+	UsagePlan		string 	`json:"usage_plan,omitempty"`
+	ApiKey			string 	`json:"apikey,omitempty"`
+	TenantID		string	`json:"tenant_id,omitempty"`
+	Updated_at  	time.Time 	`json:"updated_at,omitempty"`
 }
