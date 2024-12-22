@@ -64,7 +64,8 @@ type RSA_Key struct{
 	SecretNameH256		string
 	JwtKey				string
 	Key_rsa_priv_pem	string
-	Key_rsa_pub_pem 	string	
+	Key_rsa_pub_pem 	string
+	Crl_pem 			string		
 	Key_rsa_priv 		*rsa.PrivateKey
 	Key_rsa_pub 		*rsa.PublicKey	
 }

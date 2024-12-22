@@ -94,6 +94,8 @@ func (h *LambdaHandler) LambdaHandlerRequest(ctx context.Context, request events
 
 	//CRL
 	if(h.isCRLValidation){
+		log.Debug().Interface("ClientCert.ClientCertPem : ", request.RequestContext.Identity.ClientCert.ClientCertPem).Msg("")
+
 		res_crl, err := h.usecaseCerts.VerifyCertCRL(ctx, request.RequestContext.Identity.ClientCert.ClientCertPem)
 		if err != nil || !res_crl{
 			policyData.Message = "unauthorized cert revoked"

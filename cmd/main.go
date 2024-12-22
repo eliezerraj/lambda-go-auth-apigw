@@ -103,8 +103,9 @@ func main(){
 	rsaKey.JwtKey = *jwtKey
 	rsaKey.Key_rsa_priv_pem = string(*key_rsa_priv_pem)
 	rsaKey.Key_rsa_pub_pem = string(*key_rsa_pub_pem)
+	rsaKey.Crl_pem = string(*crl_pem)
 
-	usecaseCerts 	:= certs.NewUseCaseCerts(crl_pem)
+	usecaseCerts 	:= certs.NewUseCaseCerts(&rsaKey.Crl_pem)
 	usecasePolicy 	:= policy.NewUseCaseCPolicy()
 	useCaseJwt, err := jwt.NewUseCaseJwt(ctx, repoJwt, &rsaKey)
 	if err != nil {
