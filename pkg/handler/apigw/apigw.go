@@ -111,12 +111,16 @@ func (h *LambdaHandler) LambdaHandlerRequest(ctx context.Context, request events
 			policyData.Message = "unauthorized by token validation"
 			return h.usecasePolicy.GeneratePolicyFromClaims(ctx, policyData), nil
 		} 
-	} 
+	}
 
 	policyData.Effect = "Allow"
 	policyData.Message = "Authorized"
 
 	res := h.usecasePolicy.GeneratePolicyFromClaims(ctx, policyData)
+
+	// Add authorization context data
+	res = h.usecasePolicy.InsertDataAuthorizationContext(ctx, claims.JwtId ,res)
+
 	return res, nil
 }
 
@@ -167,6 +171,9 @@ func TokenStructureValidation(ctx context.Context, request events.APIGatewayCust
 func (l *LambdaHandler) ScopeValidation(ctx context.Context, claims model.JwtData, arn string) (bool){
 	childLogger.Debug().Msg("ScopeValidation")
 
+	span := observability.Span(ctx, "handler.ScopeValidation")	
+    defer span.End()
+
 	log.Debug().Str("arn: ", arn ).Msg("")
 
 	res_arn := strings.SplitN(arn, "/", 4)
@@ -176,9 +183,6 @@ func (l *LambdaHandler) ScopeValidation(ctx context.Context, claims model.JwtDat
 	log.Debug().Str("method", method).Msg("")
 	log.Debug().Interface("claims", claims).Msg("")
 
-	span := observability.Span(ctx, "handler.ScopeValidation")	
-    defer span.End()
-	
 	// Valid the scope in a naive way
 	var pathScope, methodScope string
 	for _, scopeListItem := range claims.Scope {

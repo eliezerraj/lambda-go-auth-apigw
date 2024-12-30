@@ -132,7 +132,7 @@ Resources:
           SECRET_JWT_KEY: 'key-jwt-auth'
           SCOPE_VALIDATION: 'true'
           TABLE_NAME: 'user_login_2'
-          CRL_VALIDATION:true
+          CRL_VALIDATION: true
           VERSION: '2.0'
       Role: 
         Fn::GetAtt: 

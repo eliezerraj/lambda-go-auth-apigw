@@ -106,13 +106,12 @@ func (u *UseCaseJwt) TokenValidationRSA(ctx context.Context, bearerToken *string
 	})
 
 	if err != nil {
-		fmt.Println(err)
 		if err == jwt.ErrSignatureInvalid {
 			return false, nil, erro.ErrStatusUnauthorized
 		}
 		return false, nil, erro.ErrTokenExpired
 	}
-
+	
 	if !tkn.Valid {
 		return false, nil ,erro.ErrStatusUnauthorized
 	}

@@ -43,3 +43,17 @@ func(u *UseCasePolicy) GeneratePolicyFromClaims(ctx context.Context, policyData 
 
 	return authResponse
 }
+
+func(u *UseCasePolicy) InsertDataAuthorizationContext (ctx context.Context, jwtid string, evt events.APIGatewayCustomAuthorizerResponse) events.APIGatewayCustomAuthorizerResponse {
+	childLogger.Debug().Msg("InsertDataAuthorizationContext")
+	
+	span := observability.Span(ctx, "useCase.InsertDataAuthorizationContext")	
+    defer span.End()
+
+	evt.Context = make(map[string]interface{})
+	//evt.Context["authMessage"] = policyData.Message
+	//evt.UsageIdentifierKey = res_userProfile.ApiKey
+	evt.Context["jwtId"] = jwtid
+
+	return evt
+}
